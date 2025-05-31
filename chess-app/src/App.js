@@ -1,11 +1,12 @@
-import React from "react";
+import "./App.css";
+import ChessBoard from "./components/chessBoard/chessBoard.js";
 
 function App() {
-    return (
-        <div>
-            Welcome to the Chess App!
-        </div>
-    )
+  return (
+    <div className="App">
+      <ChessBoard />
+    </div>
+  );
 }
 
 export default App;

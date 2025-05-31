@@ -1,0 +1,24 @@
+:root {
+    --tile-size: 50px; /* default for large screens */
+    --color-background: #302e2b;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+}
+
+@media (max-width: 600px) {
+    :root {
+       --tile-size: calc(90vmin / 8); /* 8 tiles per side, 90% of the smallest viewport side */
+    }
+}
+
+.App {
+    display:grid;
+    place-content: center;
+    height: 100vh;
+    width: 100vw;
+    background-color: var(--color-background);
+}
+
