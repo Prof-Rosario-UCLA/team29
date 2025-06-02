@@ -24,6 +24,7 @@
     align-items: center;
     font-size: clamp(10px, 2vmin, 18px);
     font-family: sans-serif;
+    position: relative;
 }
 
 .light {
@@ -52,35 +53,42 @@
     margin: auto;
 }
 
-.tile {
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
-
 .tile-content {
     width: 100%;
     height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.tile-content img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
 }
 
 .rank-label,
 .file-label {
     font-family: 'Poppins', sans-serif;
     font-weight: 600;
-    font-size: 1em;  
+    font-size: clamp(0.5vmin, 1.5vmin, 2vmin); /* Responsive font size */
     pointer-events: none;
     user-select: none;
     position: absolute;
-    left: 4px;
+    left: 5%; /* Relative to tile size */
 }
 
 .rank-label {
-    top: 4px;
+    top: 5%;
 }
 
 .file-label {
-    bottom: 4px;
+    bottom: 5%;
 }
+
 
 /* Contrasting text colors */
 .light .rank-label,
