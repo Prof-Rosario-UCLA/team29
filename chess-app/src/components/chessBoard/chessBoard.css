@@ -3,6 +3,8 @@
 :root {
     --light-color: #f0d9b5;
     --dark-color: #b58863;
+    --selected-color: rgba(103, 97, 255, 0.5);
+    --hover-color: rgba(255, 255, 255, 0.1);
 }
 
 .chess-board {
@@ -25,6 +27,12 @@
     font-size: clamp(10px, 2vmin, 18px);
     font-family: sans-serif;
     position: relative;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.tile:hover {
+    background-color: var(--hover-color) !important;
 }
 
 .light {
@@ -35,12 +43,15 @@
     background-color: var(--dark-color);
 }
 
+.selected {
+    background-color: var(--selected-color) !important;
+}
+
 .board-container {
     display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 0.5rem;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
 }
 
 .chess-board {
@@ -99,4 +110,22 @@
 .dark .rank-label,
 .dark .file-label {
     color: rgba(255, 255, 255, 0.7); /* light text on dark squares */
+}
+
+.turn-indicator {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    background-color: #f0f0f0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.turn-indicator .white {
+    color: #2c3e50;
+}
+
+.turn-indicator .black {
+    color: #34495e;
 }
