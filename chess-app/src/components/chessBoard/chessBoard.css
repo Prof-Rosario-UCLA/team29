@@ -7,15 +7,37 @@
     --hover-color: rgba(255, 255, 255, 0.1);
 }
 
+.board-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    max-width: 100%;
+    max-height: 100vh;
+    height: 100%;
+    justify-content: center;
+}
+
 .chess-board {
     display: grid;
     grid-template-columns: repeat(8, 1fr);
     grid-template-rows: repeat(8, 1fr);
     aspect-ratio: 1;
-    width: clamp(300px, 90vmin, 90vw); /* Min 300px, ideally 90vmin, max 90vw */
+    width: min(85vmin, 85vh);
     max-width: 100%;
     border: 2px solid #333;
-    margin: auto;
+    margin: 0 auto;
+    position: relative;
+}
+
+/* Add board flip for black player */
+.chess-board.black-view {
+    transform: rotate(180deg);
+}
+
+.chess-board.black-view .tile-content img {
+    transform: rotate(180deg);
 }
 
 .tile {
@@ -24,7 +46,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: clamp(10px, 2vmin, 18px);
+    font-size: clamp(8px, 1.5vmin, 16px);
     font-family: sans-serif;
     position: relative;
     cursor: pointer;
@@ -45,23 +67,6 @@
 
 .selected {
     background-color: var(--selected-color) !important;
-}
-
-.board-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-}
-
-.chess-board {
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    grid-template-rows: repeat(8, 1fr);
-    aspect-ratio: 1;
-    width: clamp(300px, 90vmin, 90vw);
-    border: 2px solid #333;
-    margin: auto;
 }
 
 .tile-content {
@@ -85,47 +90,61 @@
 .file-label {
     font-family: 'Poppins', sans-serif;
     font-weight: 600;
-    font-size: clamp(0.5vmin, 1.5vmin, 2vmin); /* Responsive font size */
+    font-size: clamp(0.4vmin, 1.2vmin, 1.5vmin);
     pointer-events: none;
     user-select: none;
     position: absolute;
-    left: 5%; /* Relative to tile size */
+    z-index: 1;
 }
 
 .rank-label {
+    left: 5%;
     top: 5%;
 }
 
 .file-label {
+    left: 5%;
     bottom: 5%;
 }
 
-
-/* Contrasting text colors */
 .light .rank-label,
 .light .file-label {
-    color: rgba(0, 0, 0, 0.6); /* dark text on light squares */
+    color: rgba(0, 0, 0, 0.6);
 }
 
 .dark .rank-label,
 .dark .file-label {
-    color: rgba(255, 255, 255, 0.7); /* light text on dark squares */
+    color: rgba(255, 255, 255, 0.7);
 }
 
-.turn-indicator {
+.game-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-bottom: 0.3rem;
+    text-align: center;
+    width: 100%;
+    max-width: min(85vmin, 85vh);
+}
+
+.turn-indicator,
+.player-info {
     font-family: 'Poppins', sans-serif;
-    font-size: 1.2rem;
+    font-size: clamp(0.7rem, 1.8vmin, 1.1rem);
     font-weight: 600;
-    padding: 0.5rem 1rem;
+    padding: 0.4rem 0.8rem;
     border-radius: 0.5rem;
-    background-color: #f0f0f0;
+    background-color: rgba(240, 240, 240, 0.9);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    width: 100%;
 }
 
-.turn-indicator .white {
+.turn-indicator .white,
+.player-info .white {
     color: #2c3e50;
 }
 
-.turn-indicator .black {
+.turn-indicator .black,
+.player-info .black {
     color: #34495e;
 }
