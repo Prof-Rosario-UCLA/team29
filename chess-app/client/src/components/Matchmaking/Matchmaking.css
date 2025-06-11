@@ -1,0 +1,105 @@
+.matchmaking-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: var(--color-background);
+    padding: 1rem;
+}
+
+.matchmaking-box {
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.matchmaking-box h2 {
+    color: #e0e0e0;
+    margin-bottom: 1.5rem;
+    font-family: 'Quicksand', sans-serif;
+    font-size: clamp(1.2rem, 3vw, 1.5rem);
+}
+
+.status {
+    color: #e0e0e0;
+    margin-bottom: 1.5rem;
+    font-family: 'Quicksand', sans-serif;
+    font-size: clamp(1rem, 2.5vw, 1.2rem);
+}
+
+.search-button,
+.cancel-button {
+    width: 100%;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 4px;
+    font-size: clamp(0.9rem, 2vw, 1.1rem);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-family: 'Quicksand', sans-serif;
+    margin: 0.5rem 0;
+}
+
+.search-button {
+    background-color: #4a90e2;
+    color: white;
+}
+
+.search-button:hover {
+    background-color: #357abd;
+}
+
+.cancel-button {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.cancel-button:hover {
+    background-color: #c0392b;
+}
+
+.user-info {
+    margin-bottom: 1.5rem;
+    color: #e0e0e0;
+    font-size: clamp(0.9rem, 2vw, 1.1rem);
+    font-family: 'Quicksand', sans-serif;
+}
+
+.error-message {
+    color: #e74c3c;
+    background-color: rgba(231, 76, 60, 0.1);
+    padding: 0.75rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    font-size: clamp(0.9rem, 2vw, 1.1rem);
+    font-family: 'Quicksand', sans-serif;
+}
+
+@media (max-width: 768px) {
+    .matchmaking-container {
+        padding: 0.75rem;
+    }
+
+    .matchmaking-box {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .matchmaking-container {
+        padding: 0.5rem;
+    }
+
+    .matchmaking-box {
+        padding: 1rem;
+    }
+
+    .search-button,
+    .cancel-button {
+        padding: 0.6rem;
+    }
+} 

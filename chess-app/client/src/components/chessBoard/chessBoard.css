@@ -1,0 +1,384 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
+
+:root {
+    --light-color: #f0d9b5;
+    --dark-color: #b58863;
+    --selected-color: rgba(103, 97, 255, 0.5);
+    --hover-color: rgba(255, 255, 255, 0.1);
+}
+
+.chess-board-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    height: 100%;
+    padding: 0.5rem;
+}
+
+.game-info {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.turn-indicator, .player-info {
+    font-size: clamp(0.9rem, 2vw, 1.2rem);
+    color: #e0e0e0;
+    font-weight: 500;
+    margin: 5px 0;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.check-warning {
+    font-size: clamp(0.9rem, 2vw, 1.2rem);
+    color: #ff4444;
+    font-weight: 600;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 68, 68, 0.1);
+    border-radius: 8px;
+    text-align: center;
+    margin: 5px 0;
+    letter-spacing: 0.3px;
+}
+
+.game-over {
+    font-size: clamp(0.9rem, 2vw, 1.2rem);
+    color: #4CAF50;
+    font-weight: 600;
+    padding: 0.75rem 1rem;
+    background: rgba(76, 175, 80, 0.1);
+    border-radius: 8px;
+    text-align: center;
+    margin: 5px 0;
+    letter-spacing: 0.5px;
+}
+
+.chess-board {
+    width: 100%;
+    height: 100%;
+    max-width: min(80vh, 80vw);
+    max-height: min(80vh, 80vw);
+    aspect-ratio: 1;
+    display: grid;
+    grid-template-rows: repeat(8, 1fr);
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.board-row {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+}
+
+.square {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.board-square.light {
+    background-color: #f0d9b5;
+}
+
+.board-square.dark {
+    background-color: #b58863;
+}
+
+.square.selected {
+    background-color: #7b61ff;
+}
+
+.square.valid-move {
+    background-color: rgba(123, 97, 255, 0.3);
+}
+
+.square.valid-move::before {
+    content: '';
+    position: absolute;
+    width: 25%;
+    height: 25%;
+    background-color: rgba(123, 97, 255, 0.5);
+    border-radius: 50%;
+}
+
+.piece {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    user-select: none;
+    transition: transform 0.2s;
+}
+
+.piece img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.piece:hover {
+    transform: scale(1.1);
+}
+
+.piece.white {
+    color: #fff;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.piece.black {
+    color: #000;
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+.game-over-board {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* Player color specific styles */
+.turn-indicator.white, .player-info.white {
+    background: rgba(240, 240, 240, 0.9);
+    color: #2c3e50;
+}
+
+.turn-indicator.black, .player-info.black {
+    background: rgba(44, 62, 80, 0.9);
+    color: #f0f0f0;
+}
+
+.check-warning.white {
+    background: rgba(255, 68, 68, 0.15);
+    color: #ff4444;
+}
+
+.check-warning.black {
+    background: rgba(255, 68, 68, 0.15);
+    color: #ff4444;
+}
+
+.game-over.white {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4CAF50;
+}
+
+.game-over.black {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4CAF50;
+}
+
+/* Add board flip for black player */
+.chess-board.black-view {
+    transform: rotate(180deg);
+}
+
+.chess-board.black-view .tile-content img {
+    transform: rotate(180deg);
+}
+
+.tile {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: clamp(8px, 1.5vmin, 16px);
+    font-family: sans-serif;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.tile:hover {
+    background-color: var(--hover-color) !important;
+}
+
+.light {
+    background-color: var(--light-color);
+}
+
+.dark {
+    background-color: var(--dark-color);
+}
+
+.tile.selected {
+    background-color: rgba(144, 238, 144, 0.5) !important; /* Light green with transparency */
+}
+
+.tile-content {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.tile-content img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+}
+
+.rank-label,
+.file-label {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    font-size: clamp(0.4vmin, 1.2vmin, 1.5vmin);
+    pointer-events: none;
+    user-select: none;
+    position: absolute;
+    z-index: 1;
+}
+
+.rank-label {
+    left: 5%;
+    top: 5%;
+}
+
+.file-label {
+    left: 5%;
+    bottom: 5%;
+}
+
+.light .rank-label,
+.light .file-label {
+    color: rgba(0, 0, 0, 0.6);
+}
+
+.dark .rank-label,
+.dark .file-label {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.game-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    width: 200px;
+    font-family: 'Quicksand', sans-serif;
+}
+
+.turn-indicator,
+.player-info {
+    font-size: clamp(0.8rem, 2vw, 1.1rem);
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    text-align: center;
+}
+
+.check-warning {
+    font-size: clamp(0.9rem, 2.2vw, 1.2rem);
+    font-weight: 600;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    text-align: center;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.game-over-board {
+    opacity: 0.8;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.tile.valid-move {
+    position: relative;
+}
+
+.tile.valid-move::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 25%;
+    height: 25%;
+    background-color: rgba(144, 238, 144, 0.5); /* Light green with transparency */
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.tile.valid-move:not(:empty)::after {
+    width: 100%;
+    height: 100%;
+    background-color: rgba(144, 238, 144, 0.3); /* Lighter green with transparency */
+    border-radius: 0;
+}
+
+.tile.in-check {
+    background-color: rgba(255, 107, 107, 0.3) !important;
+}
+
+@media (max-width: 768px) {
+    .chess-board {
+        max-width: min(70vh, 70vw);
+        max-height: min(70vh, 70vw);
+    }
+
+    .game-info {
+        padding: 0.75rem;
+    }
+
+    .turn-indicator, .player-info, .check-warning, .game-over {
+        padding: 0.5rem 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .chess-board {
+        display: none;
+    }
+    .chess-board-container {
+        padding: 0;
+        margin: 0;
+    }
+
+    .game-info {
+        padding: 0.5rem;
+    }
+
+    .turn-indicator, .player-info, .check-warning, .game-over {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.9rem;
+    }
+}
+
+.ai-piece {
+    cursor: not-allowed;
+    opacity: 0.9;
+}
+
+.board-square.ai-piece {
+    cursor: not-allowed;
+}
+
+.board-square.ai-piece:hover {
+    background-color: inherit !important;
+}

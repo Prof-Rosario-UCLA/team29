@@ -1,0 +1,28 @@
+{
+  "targets": {
+    "debug": {
+      "outFile": "public/chess_ai.wasm",
+      "textFile": "public/chess_ai.wat",
+      "sourceMap": true,
+      "debug": true
+    },
+    "release": {
+      "outFile": "public/chess_ai.wasm",
+      "textFile": "public/chess_ai.wat",
+      "sourceMap": true,
+      "optimizeLevel": 3,
+      "shrinkLevel": 1,
+      "converge": false,
+      "noAssert": false
+    }
+  },
+  "options": {
+    "bindings": "esm",
+    "runtime": "stub",
+    "importMemory": true,
+    "initialMemory": 1,
+    "maximumMemory": 1,
+    "exportRuntime": true,
+    "transform": ["./node_modules/as-bind/dist/transform"]
+  }
+} 
