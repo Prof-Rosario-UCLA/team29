@@ -15,7 +15,6 @@ function App() {
     const [email, setEmail] = useState('');
     const [isLogin, setIsLogin] = useState(true);
     const [isSearching, setIsSearching] = useState(false);
-    const [searchInterval, setSearchInterval] = useState(null);
     const [promotionMove, setPromotionMove] = useState(null);
     const [castlingRights, setCastlingRights] = useState(initializeCastlingRights());
     const [gameNotification, setGameNotification] = useState(null);
@@ -125,97 +124,34 @@ function App() {
         setGameNotification(null);
     };
 
-    function boardToString(board) {
-        let str = '';
-        for (let i = 0; i < 8; i++) {
-            for (let j = 0; j < 8; j++) {
-                const piece = board[i][j];
-                if (!piece) {
-                    str += '.';
-                } else {
-                    let c = '';
-                    switch (piece.type) {
-                        case 'pawn':   c = 'p'; break;
-                        case 'rook':   c = 'r'; break;
-                        case 'knight': c = 'n'; break;
-                        case 'bishop': c = 'b'; break;
-                        case 'queen':  c = 'q'; break;
-                        case 'king':   c = 'k'; break;
-                        default:       c = '.'; break;
-                    }
-                    str += piece.color === 'white' ? c.toUpperCase() : c;
-                }
-            }
-        }
-        console.log('Board string:', str);
-        return str;
-    }
-
-    function moveStringToCoords(moveStr) {
-        // WASM returns moves in format "fromRowfromColtoRowtoCol" (e.g., "6151" or "6151q")
-        if (!moveStr || moveStr.length < 4) {
-            console.error('Invalid move string:', moveStr);
-            return null;
-        }
-        const from = { row: parseInt(moveStr[0]), col: parseInt(moveStr[1]) };
-        const to = { row: parseInt(moveStr[2]), col: parseInt(moveStr[3]) };
-        const promotion = moveStr.length > 4 ? moveStr[4] : null;
-        console.log('Parsed move:', { from, to, promotion });
-        return { from, to, promotion };
-    }
-
-    function applyMove(board, moveStr) {
-        const move = moveStringToCoords(moveStr);
-        if (!move) {
-            console.error('Invalid move:', moveStr);
-            return board;
-        }
-        
-        const { from, to, promotion } = move;
-        const newBoard = board.map(row => row.slice());
-        const piece = newBoard[from.row][from.col];
-        
-        if (!piece) {
-            console.error('No piece at source position:', from);
-            return board;
-        }
-
-        // Move the piece
-        newBoard[to.row][to.col] = piece;
-        newBoard[from.row][from.col] = null;
-
-        // Handle promotion
-        if (promotion) {
-            const promotedPiece = { 
-                type: promotion.toLowerCase(), 
-                color: piece.color, 
-                image: getPieceImage(promotion.toLowerCase(), piece.color) 
-            };
-            newBoard[to.row][to.col] = promotedPiece;
-        }
-
-        console.log('Applied move:', { from, to, promotion });
-        console.log('New board state:', newBoard);
-        return newBoard;
-    }
-
     const handleMove = async (move) => {
         if (!gameState) return;
         const { from, to } = move;
         const board = gameState.board.map(row => row.slice());
         const piece = board[from.row][from.col];
         
+        if (!piece) {
+            console.error('No piece at source position:', from);
+            return;
+        }
+
         // Check if it's player's turn
         if (gameState.gameMode === 'local') {
             // In local mode, just alternate turns
             if (gameState.currentTurn !== piece.color) {
-                alert("It's not your turn!");
+                setGameNotification({ 
+                    message: "It's not your turn!", 
+                    type: 'error' 
+                });
                 return;
             }
         } else if (gameState.gameMode === 'online') {
             // In online mode, only allow moves for the player's color
             if (gameState.color !== piece.color) {
-                alert("It's not your turn!");
+                setGameNotification({ 
+                    message: "It's not your turn!", 
+                    type: 'error' 
+                });
                 return;
             }
             // Emit move to server
@@ -281,6 +217,9 @@ function App() {
             board,
             currentTurn: prev.currentTurn === 'white' ? 'black' : 'white'
         }));
+
+        // Clear any existing notifications
+        setGameNotification(null);
     };
 
     const handlePromotion = (promotionType) => {
@@ -291,6 +230,16 @@ function App() {
         board[to.row][to.col] = promotedPiece;
         board[from.row][from.col] = null;
 
+        // If it's an online game, emit the promotion move
+        if (gameState.gameMode === 'online' && socketRef.current) {
+            socketRef.current.emit('makeMove', {
+                gameId: gameState.gameId,
+                from,
+                to,
+                promotion: promotionType
+            });
+        }
+
         // Update state for player's move
         setGameState(prev => ({
             ...prev,
@@ -300,6 +249,9 @@ function App() {
 
         // Reset promotion state
         setPromotionMove(null);
+        
+        // Clear any existing notifications
+        setGameNotification(null);
     };
 
     const handleResetGame = () => {
@@ -545,9 +497,16 @@ function App() {
                                     castlingRights={castlingRights}
                                 />
                                 {gameState && (
-                                    <button className="quit-game-button" onClick={handleQuitGame} style={{ marginTop: '1rem' }}>
-                                        Quit Game
-                                    </button>
+                                    <div className="game-controls">
+                                        <button className="quit-game-button" onClick={handleQuitGame}>
+                                            Quit Game
+                                        </button>
+                                        {gameState.gameMode === 'local' && (
+                                            <button className="reset-game-button" onClick={handleResetGame}>
+                                                Reset Game
+                                            </button>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </>
@@ -565,6 +524,9 @@ function App() {
                     )}
                 </div>
             </div>
+            {gameNotification && (
+                <Notification message={gameNotification.message} type={gameNotification.type} />
+            )}
             {promotionMove && (
                 <div className="promotion-modal">
                     <h3>Choose a piece to promote to:</h3>
@@ -612,6 +574,41 @@ const styles = `
 .game-notification.info {
     background-color: #2196F3;
     color: white;
+}
+
+.game-controls {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    justify-content: center;
+}
+
+.quit-game-button, .reset-game-button {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.quit-game-button {
+    background-color: #f44336;
+    color: white;
+}
+
+.quit-game-button:hover {
+    background-color: #d32f2f;
+}
+
+.reset-game-button {
+    background-color: #2196F3;
+    color: white;
+}
+
+.reset-game-button:hover {
+    background-color: #1976D2;
 }
 
 @keyframes fadeIn {

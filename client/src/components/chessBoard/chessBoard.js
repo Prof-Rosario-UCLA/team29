@@ -1,19 +1,8 @@
 import "./chessBoard.css";
 import React, { useState } from "react";
-import { PIECE_TYPES, COLORS, initializeBoard } from "../../utils/boardState";
-import { isValidMove, getValidMovesWithCheck, isKingInCheck, initializeCastlingRights } from "./chessRules";
-import io from "socket.io-client";
+import { getValidMovesWithCheck } from "./chessRules";
 
-const PIECE_SYMBOLS = {
-    [PIECE_TYPES.KING]: { [COLORS.WHITE]: '♔', [COLORS.BLACK]: '♚' },
-    [PIECE_TYPES.QUEEN]: { [COLORS.WHITE]: '♕', [COLORS.BLACK]: '♛' },
-    [PIECE_TYPES.ROOK]: { [COLORS.WHITE]: '♖', [COLORS.BLACK]: '♜' },
-    [PIECE_TYPES.BISHOP]: { [COLORS.WHITE]: '♗', [COLORS.BLACK]: '♝' },
-    [PIECE_TYPES.KNIGHT]: { [COLORS.WHITE]: '♘', [COLORS.BLACK]: '♞' },
-    [PIECE_TYPES.PAWN]: { [COLORS.WHITE]: '♙', [COLORS.BLACK]: '♟' }
-};
-
-const ChessBoard = ({ board, onMove, currentTurn, playerColor, isStatic, isAIMode }) => {
+const ChessBoard = ({ board, onMove, currentTurn, playerColor, isStatic, isAIMode, castlingRights }) => {
     const [selectedSquare, setSelectedSquare] = useState(null);
     const [validMoves, setValidMoves] = useState([]);
 
@@ -51,11 +40,7 @@ const ChessBoard = ({ board, onMove, currentTurn, playerColor, isStatic, isAIMod
         if (piece && piece.color === currentTurn) {
             setSelectedSquare({ row, col });
             setValidMoves(getValidMovesWithCheck(board, row, col));
-            return;
         }
-
-        setSelectedSquare(null);
-        setValidMoves([]);
     };
 
     const renderPiece = (piece) => {
