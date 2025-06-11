@@ -18,15 +18,12 @@
     "web-vitals": "^2.1.4"
   },
   "devDependencies": {
-    "as-bind": "^0.8.2",
-    "assemblyscript": "0.19.23",
     "react-app-rewired": "^2.2.1",
     "sharp": "^0.34.2"
   },
   "scripts": {
     "start": "react-app-rewired start",
-    "build:wasm": "asc src/wasm/chess_ai.ts --config asconfig.json --target release",
-    "build": "npm run build:wasm && react-app-rewired build",
+    "build": "react-app-rewired build",
     "test": "react-app-rewired test",
     "eject": "react-scripts eject",
     "dev": "react-scripts start",
