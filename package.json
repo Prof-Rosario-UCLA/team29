@@ -14,7 +14,8 @@
     "dev:full": "concurrently \"npm run dev\" \"npm run client\"",
     "start:all": "concurrently \"npm run dev\" \"npm run client\"",
     "build": "cd client && npm run build",
-    "test": "cd client && npm test"
+    "test": "cd client && npm test",
+    "setup-db": "node server/setup-db.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

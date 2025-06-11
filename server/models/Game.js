@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
+const User = require('./User');
 
 const Game = sequelize.define('Game', {
   id: {
@@ -36,7 +37,13 @@ const Game = sequelize.define('Game', {
     defaultValue: 'ongoing'
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  tableName: 'Games'
 });
+
+// Define associations
+Game.belongsTo(User, { as: 'player_white', foreignKey: 'player_whiteId' });
+Game.belongsTo(User, { as: 'player_black', foreignKey: 'player_blackId' });
+Game.belongsTo(User, { as: 'winner_user', foreignKey: 'winner' });
 
 module.exports = Game; 
