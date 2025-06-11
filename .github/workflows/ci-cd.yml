@@ -36,43 +36,43 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v3
+    - uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          cache: 'npm'
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
 
-      - name: Install dependencies
-        run: |
-          npm install
-          cd client && npm install
-          cd ../server && npm install
+    - name: Install root dependencies
+      run: npm install
 
-      - name: Build client
-        run: cd client && npm run build
+    - name: Install client dependencies
+      run: npm install
+      working-directory: client
 
-      - name: Upload client build
-        uses: actions/upload-artifact@v4
-        with:
-          name: client-dist
-          path: client/dist
+    - name: Install server dependencies
+      run: npm install
+      working-directory: server
 
-      - name: Upload server files
-        uses: actions/upload-artifact@v4
-        with:
-          name: server-files
-          path: |
-            server
-            setup-db.js
-            server.js
-            runMigration.js
-            resetDb.js
-            db.js
-            package.json
-            package-lock.json
-            !server/tests/**
+    - name: Build client
+      run: npm run build
+      working-directory: client
+
+    - name: Upload client build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: client-dist
+        path: client/dist
+
+    - name: Upload server files
+      uses: actions/upload-artifact@v4
+      with:
+        name: server-code
+        path: |
+          server
+          package.json
+          package-lock.json
 
   deploy:
     needs: build-and-test
@@ -80,60 +80,62 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
-      - uses: actions/checkout@v3
+    - uses: actions/checkout@v3
 
-      - name: Download client build
-        uses: actions/download-artifact@v4
-        with:
-          name: client-dist
-          path: client/dist
+    # ✅ Auth with GCP
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Download server files
-        uses: actions/download-artifact@v4
-        with:
-          name: server-files
-          path: .
+    - name: Set up gcloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+    # ✅ Download artifacts
+    - name: Download client build
+      uses: actions/download-artifact@v4
+      with:
+        name: client-dist
+        path: client/dist
 
-      - name: Set up Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+    - name: Download server files
+      uses: actions/download-artifact@v4
+      with:
+        name: server-code
+        path: ./server-root
 
-      - name: Deploy to VM
-        run: |
-          echo "Starting VM if stopped..."
-          gcloud compute instances start ${{ secrets.VM_NAME }} --zone=us-west1-a
+    # ✅ Deploy to VM
+    - name: Deploy to GCP VM
+      run: |
+        echo "Starting VM..."
+        gcloud compute instances start ${{ secrets.VM_NAME }} --zone=us-west1-a
 
-          echo "Waiting for VM to be ready..."
-          sleep 30
+        echo "Waiting for VM..."
+        sleep 30
 
-          echo "Creating directories on VM..."
-          gcloud compute ssh ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }} --zone=us-west1-a --command="mkdir -p ~/client/dist ~/server"
+        echo "Creating directories on VM..."
+        gcloud compute ssh ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }} --zone=us-west1-a --command="mkdir -p ~/client/dist ~/server"
 
-          echo "Copying files to VM..."
-          gcloud compute scp --recurse ./client/dist/* ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~/client/dist --zone=us-west1-a
-          gcloud compute scp --recurse ./server/* ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~/server --zone=us-west1-a
-          gcloud compute scp ./*.js ./package.json ./package-lock.json ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~ --zone=us-west1-a
+        echo "Copying files to VM..."
+        gcloud compute scp --recurse client/dist ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~/client --zone=us-west1-a
+        gcloud compute scp --recurse server-root/server ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~/server --zone=us-west1-a
+        gcloud compute scp server-root/package*.json ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~ --zone=us-west1-a
 
-          echo "Setting up environment and restarting service..."
-          gcloud compute ssh ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }} --zone=us-west1-a --command="
-            echo 'DATABASE_URL=postgres://postgres:postgres@localhost:5432/chess_app' > .env
-            echo 'JWT_SECRET=${{ secrets.JWT_SECRET }}' >> .env
-            echo 'CLIENT_URL=http://localhost:3000' >> .env
-            echo 'PORT=3001' >> .env
-            echo 'NODE_ENV=production' >> .env
+        echo "Running setup and restarting services..."
+        gcloud compute ssh ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }} --zone=us-west1-a --command="
+          echo 'DATABASE_URL=postgres://postgres:postgres@localhost:5432/chess_app' > .env
+          echo 'JWT_SECRET=${{ secrets.JWT_SECRET }}' >> .env
+          echo 'CLIENT_URL=http://localhost:3000' >> .env
+          echo 'PORT=3001' >> .env
+          echo 'NODE_ENV=production' >> .env
 
-            npm install
-            cd server && npm install
+          npm install
+          cd server && npm install
+          node setup-db.js
 
-            node setup-db.js
+          pm2 restart all || pm2 start npm --name 'chess-app' -- start
+        "
 
-            pm2 restart all || pm2 start npm --name 'chess-app' -- start
-          "
-
-          echo "✅ Deployment completed!"
+        echo "✅ Deployment complete."
