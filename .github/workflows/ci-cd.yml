@@ -117,7 +117,8 @@ jobs:
 
           echo "Copying files to VM..."
           gcloud compute scp --recurse client/build ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~/client --zone=us-west1-a
-          gcloud compute scp --recurse server-root/server ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~/server --zone=us-west1-a
+          # copy all files *inside* server-root/server into ~/server
+          gcloud compute scp --recurse server-root/server/. ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~/server --zone=us-west1-a
           gcloud compute scp server-root/package*.json ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~ --zone=us-west1-a
 
           echo "Running setup and restarting services..."
@@ -130,8 +131,11 @@ jobs:
 
             npm install
             cd server && npm install
-            node setup-db.js
+            node server/setup-db.js
 
+            if ! command -v pm2 >/dev/null 2>&1; then
+              sudo npm install -g pm2
+            fi
             pm2 restart all || pm2 start npm --name 'chess-app' -- start
           "
 
