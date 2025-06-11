@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -51,7 +52,7 @@ app.use(cors({
 app.use(express.json());
 
 // Serve static files from the React app
-app.use(express.static(path.join(__dirname, '../client/dist')));
+app.use(express.static(path.join(__dirname, '../client/build')));
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -79,7 +80,7 @@ app.post('/api/register', async (req, res) => {
             email
         });
 
-        const token = jwt.sign({ id: user.id, username }, 'chess_app_secret_key');
+        const token = jwt.sign({ id: user.id, username }, process.env.JWT_SECRET || 'chess_app_secret_key');
         res.json({ token, username });
     } catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError') {
@@ -100,7 +101,7 @@ app.post('/api/login', async (req, res) => {
         const validPassword = await bcrypt.compare(password, user.password_hash);
         if (!validPassword) return res.status(400).json({ error: 'Invalid password' });
         
-        const token = jwt.sign({ id: user.id, username }, 'chess_app_secret_key');
+        const token = jwt.sign({ id: user.id, username }, process.env.JWT_SECRET || 'chess_app_secret_key');
         res.json({ token, username });
     } catch (error) {
         console.error('Login error:', error);
@@ -123,11 +124,7 @@ app.get('/api/user/stats', authenticateToken, async (req, res) => {
             }
         });
 
-        const stats = {
-            wins: 0,
-            losses: 0,
-            draws: 0
-        };
+        const stats = { wins: 0, losses: 0, draws: 0 };
 
         games.forEach(game => {
             if (game.status === 'completed') {
@@ -161,7 +158,7 @@ io.use(async (socket, next) => {
             return next(new Error('Authentication error'));
         }
 
-        const decoded = jwt.verify(token, 'chess_app_secret_key');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'chess_app_secret_key');
         const user = await User.findByPk(decoded.id);
         
         if (!user) {
@@ -182,10 +179,10 @@ async function startServer() {
         await sequelize.authenticate();
         console.log('Database connection established');
 
-        // Start the server
+        // Start the server on all interfaces
         const PORT = process.env.PORT || 3001;
-        server.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
+        server.listen(PORT, '0.0.0.0', () => {
+            console.log(`Server listening on http://0.0.0.0:${PORT}`);
         });
 
         // Socket connection handling
@@ -200,22 +197,17 @@ async function startServer() {
                 if (!waitingPlayers.has(username)) {
                     waitingPlayers.set(username, socket);
                     console.log('Added to matchmaking queue:', username);
-                    console.log('Current queue size:', waitingPlayers.size);
-                    console.log('Players in queue:', Array.from(waitingPlayers.keys()));
                 }
 
                 if (waitingPlayers.size >= 2) {
                     const [player1, player2] = Array.from(waitingPlayers.entries());
                     const [username1, socket1] = player1;
                     const [username2, socket2] = player2;
-
                     waitingPlayers.delete(username1);
                     waitingPlayers.delete(username2);
 
                     const gameId = `game_${Date.now()}`;
                     console.log('Match found! Game ID:', gameId);
-                    console.log('White:', username1);
-                    console.log('Black:', username2);
 
                     try {
                         const game = await Game.create({
@@ -224,7 +216,6 @@ async function startServer() {
                             player_blackId: socket2.user.id,
                             status: 'ongoing'
                         });
-                        console.log('Game created in database:', game.id);
 
                         activeGames.set(gameId, {
                             white: socket1,
@@ -233,16 +224,8 @@ async function startServer() {
                             currentTurn: 'white'
                         });
 
-                        socket1.emit('gameFound', {
-                            gameId,
-                            color: 'white',
-                            players: { white: username1, black: username2 }
-                        });
-                        socket2.emit('gameFound', {
-                            gameId,
-                            color: 'black',
-                            players: { white: username1, black: username2 }
-                        });
+                        socket1.emit('gameFound', { gameId, color: 'white', players: { white: username1, black: username2 } });
+                        socket2.emit('gameFound', { gameId, color: 'black', players: { white: username1, black: username2 } });
                     } catch (error) {
                         console.error('Error creating game record:', error);
                         socket1.emit('error', { message: 'Failed to create game' });
@@ -254,7 +237,6 @@ async function startServer() {
             socket.on('quitGame', async ({ gameId }) => {
                 console.log('Player quit game:', socket.user.username, 'Game ID:', gameId);
                 const game = activeGames.get(gameId);
-                
                 if (game) {
                     const opponent = game.white === socket ? game.black : game.white;
                     if (opponent) {
@@ -265,20 +247,11 @@ async function startServer() {
                     }
 
                     try {
-                        const gameRecord = await Game.findOne({
-                            where: {
-                                id: gameId,
-                                status: 'ongoing'
-                            }
-                        });
-
+                        const gameRecord = await Game.findOne({ where: { id: gameId, status: 'ongoing' } });
                         if (gameRecord) {
-                            await gameRecord.update({
-                                status: 'completed',
-                                winner: opponent.user.id
-                            });
-                            console.log('Game updated in database after quit:', gameId);
+                            await gameRecord.update({ status: 'completed', winner: opponent.user.id });
                         }
+                        console.log('Game updated after quit:', gameId);
                     } catch (error) {
                         console.error('Error updating game record after quit:', error);
                     }
@@ -288,8 +261,7 @@ async function startServer() {
             });
 
             socket.on('disconnect', async (reason) => {
-                console.log('User disconnected:', socket.id, 'Username:', socket.user?.username, 'Reason:', reason);
-                
+                console.log('User disconnected:', socket.id, 'Reason:', reason);
                 for (const [gameId, game] of activeGames.entries()) {
                     if (game.white === socket || game.black === socket) {
                         const opponent = game.white === socket ? game.black : game.white;
@@ -299,66 +271,39 @@ async function startServer() {
                                 reason: 'opponent_disconnected'
                             });
                         }
-
                         try {
-                            const gameRecord = await Game.findOne({
-                                where: {
-                                    id: gameId,
-                                    status: 'ongoing'
-                                }
-                            });
-
+                            const gameRecord = await Game.findOne({ where: { id: gameId, status: 'ongoing' } });
                             if (gameRecord) {
-                                await gameRecord.update({
-                                    status: 'completed',
-                                    winner: opponent.user.id
-                                });
-                                console.log('Game updated in database after disconnect:', gameId);
+                                await gameRecord.update({ status: 'completed', winner: opponent.user.id });
                             }
+                            console.log('Game updated after disconnect:', gameId);
                         } catch (error) {
                             console.error('Error updating game record after disconnect:', error);
                         }
-
                         activeGames.delete(gameId);
                         break;
                     }
                 }
-
-                if (socket.user) {
-                    waitingPlayers.delete(socket.user.username);
-                }
+                if (socket.user) waitingPlayers.delete(socket.user.username);
             });
 
             socket.on('makeMove', ({ gameId, from, to }) => {
                 console.log('Move received:', { gameId, from, to });
                 const game = activeGames.get(gameId);
-                
-                if (!game) {
-                    console.error('Game not found:', gameId);
-                    return;
-                }
+                if (!game) return console.error('Game not found:', gameId);
 
-                // Determine if it's the player's turn
                 const isWhite = game.white === socket;
                 const isBlack = game.black === socket;
                 const isPlayerTurn = (isWhite && game.currentTurn === 'white') || (isBlack && game.currentTurn === 'black');
+                if (!isPlayerTurn) return console.error('Not player\'s turn');
 
-                if (!isPlayerTurn) {
-                    console.error('Not player\'s turn');
-                    return;
-                }
-
-                // Update the board state
-                const { row: fromRow, col: fromCol } = from;
-                const { row: toRow, col: toCol } = to;
-                const piece = game.board.pieces[fromRow][fromCol];
-                game.board.pieces[fromRow][fromCol] = null;
-                game.board.pieces[toRow][toCol] = piece;
-
-                // Switch turns
+                const { row: fR, col: fC } = from;
+                const { row: tR, col: tC } = to;
+                const piece = game.board.pieces[fR][fC];
+                game.board.pieces[fR][fC] = null;
+                game.board.pieces[tR][tC] = piece;
                 game.currentTurn = game.currentTurn === 'white' ? 'black' : 'white';
 
-                // Broadcast the move to the opponent
                 const opponent = isWhite ? game.black : game.white;
                 opponent.emit('opponentMove', { from, to });
             });
@@ -373,10 +318,3 @@ async function startServer() {
 if (require.main === module) {
     startServer();
 }
-
-// The catch-all handler for any request that doesn't match an API route
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-});
-
-module.exports = app; 
