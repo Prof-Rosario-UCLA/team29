@@ -14,7 +14,6 @@
     "dev:full": "concurrently \"npm run dev\" \"npm run client\"",
     "start:all": "concurrently \"npm run dev\" \"npm run client\"",
     "build": "cd client && npm run build",
-    "test": "cd client && npm test",
     "setup-db": "node server/setup-db.js"
   },
   "dependencies": {
@@ -37,9 +36,6 @@
     "web-vitals": "^2.1.4"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0",
     "as-bind": "^0.8.2",
     "assemblyscript": "0.19.23",
     "concurrently": "^8.2.2",

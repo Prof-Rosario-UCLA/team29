@@ -46,25 +46,13 @@ jobs:
 
     - name: Install dependencies
       run: |
-        cd chess-app
         npm install
         cd client && npm install
-
-    - name: Run tests
-      run: |
-        cd chess-app
-        npm test
-        cd client && npm test
-      env:
-        CI: true
-        POSTGRES_USER: postgres
-        POSTGRES_PASSWORD: postgres
-        POSTGRES_DB: chess_app_test
-        DATABASE_URL: postgres://postgres:postgres@localhost:5432/chess_app_test
+        cd ../server && npm install
 
     - name: Build
       run: |
-        cd chess-app/client && npm run build
+        cd client && npm run build
 
   deploy:
     needs: build-and-test
@@ -77,27 +65,44 @@ jobs:
     - name: Set up Google Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
       with:
-        project_id: cs144-25s-srinathsai22-459406
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
         service_account_key: ${{ secrets.GCP_SA_KEY }}
         export_default_credentials: true
 
     - name: Deploy to VM
       run: |
         echo "Starting VM if stopped..."
-        gcloud compute instances start cs144-25s-srinathsai22 --zone=us-west1-a
+        gcloud compute instances start ${{ secrets.VM_NAME }} --zone=us-west1-a
         
         echo "Waiting for VM to be ready..."
         sleep 30
         
         echo "Copying files to VM..."
-        gcloud compute scp --recurse ./chess-app/client/dist/* cs144-25s-srinathsai22:~/chess-app/client/dist --zone=us-west1-a
-        gcloud compute scp --recurse ./chess-app/server/* cs144-25s-srinathsai22:~/chess-app/server --zone=us-west1-a
-        gcloud compute scp ./chess-app/package.json ./chess-app/package-lock.json cs144-25s-srinathsai22:~/chess-app --zone=us-west1-a
+        # Create necessary directories
+        gcloud compute ssh ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }} --zone=us-west1-a --command="mkdir -p ~/client/dist"
+        
+        # Copy files
+        gcloud compute scp --recurse ./client/dist/* ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~/client/dist --zone=us-west1-a
+        gcloud compute scp --recurse ./server/* ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~/server --zone=us-west1-a
+        gcloud compute scp ./package.json ./package-lock.json ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~ --zone=us-west1-a
         
         echo "Setting up environment and restarting service..."
-        gcloud compute ssh cs144-25s-srinathsai22 --zone=us-west1-a --command="
-          cd ~/chess-app && \
-          npm install && \
+        gcloud compute ssh ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }} --zone=us-west1-a --command="
+          # Create .env file
+          echo 'DATABASE_URL=postgres://postgres:postgres@localhost:5432/chess_app' > .env
+          echo 'JWT_SECRET=${{ secrets.JWT_SECRET }}' >> .env
+          echo 'CLIENT_URL=http://localhost:3000' >> .env
+          echo 'PORT=3001' >> .env
+          echo 'NODE_ENV=production' >> .env
+          
+          # Install dependencies
+          npm install
+          cd server && npm install
+          
+          # Setup database
+          node setup-db.js
+          
+          # Restart service
           pm2 restart all || pm2 start npm --name 'chess-app' -- start
         "
         

@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const path = require('path');
 const sequelize = require('./db');
 const User = require('./models/User');
 const Game = require('./models/Game');
@@ -48,6 +49,9 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, '../client/dist')));
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -138,6 +142,11 @@ app.get('/api/user/stats', authenticateToken, async (req, res) => {
         console.error('Error fetching stats:', error);
         res.status(500).json({ error: 'Error fetching user stats' });
     }
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
 });
 
 // Store active games and waiting players
@@ -355,9 +364,19 @@ async function startServer() {
             });
         });
     } catch (error) {
-        console.error('Error starting server:', error);
+        console.error('Failed to start server:', error);
         process.exit(1);
     }
 }
 
-startServer(); 
+// Only start the server if this file is run directly
+if (require.main === module) {
+    startServer();
+}
+
+// The catch-all handler for any request that doesn't match an API route
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});
+
+module.exports = app; 
