@@ -46,11 +46,13 @@ jobs:
 
     - name: Install dependencies
       run: |
+        cd chess-app
         npm install
         cd client && npm install
 
     - name: Run tests
       run: |
+        cd chess-app
         npm test
         cd client && npm test
       env:
@@ -62,7 +64,7 @@ jobs:
 
     - name: Build
       run: |
-        cd client && npm run build
+        cd chess-app/client && npm run build
 
   deploy:
     needs: build-and-test
@@ -88,9 +90,9 @@ jobs:
         sleep 30
         
         echo "Copying files to VM..."
-        gcloud compute scp --recurse ./client/dist/* cs144-25s-srinathsai22:~/chess-app/client/dist --zone=us-west1-a
-        gcloud compute scp --recurse ./server/* cs144-25s-srinathsai22:~/chess-app/server --zone=us-west1-a
-        gcloud compute scp package.json package-lock.json cs144-25s-srinathsai22:~/chess-app --zone=us-west1-a
+        gcloud compute scp --recurse ./chess-app/client/dist/* cs144-25s-srinathsai22:~/chess-app/client/dist --zone=us-west1-a
+        gcloud compute scp --recurse ./chess-app/server/* cs144-25s-srinathsai22:~/chess-app/server --zone=us-west1-a
+        gcloud compute scp ./chess-app/package.json ./chess-app/package-lock.json cs144-25s-srinathsai22:~/chess-app --zone=us-west1-a
         
         echo "Setting up environment and restarting service..."
         gcloud compute ssh cs144-25s-srinathsai22 --zone=us-west1-a --command="
