@@ -12,7 +12,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:latest
+        image: postgres:15
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -20,23 +20,60 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
       redis:
-        image: redis:latest
-        ports:
-          - 6379:6379
+        image: redis:7
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      REDIS_URL: redis://127.0.0.1:6379
+      PGPASSWORD: postgres
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Wait for Postgres to be ready
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U postgres; then
+              echo "Postgres is ready"
+              break
+            fi
+            echo "Waiting for Postgres... (attempt $i/30)"
+            sleep 2
+            if [ $i -eq 30 ]; then
+              echo "Postgres failed to start"
+              exit 1
+            fi
+          done
+
+      - name: Create test database if not exists
+        run: |
+          for i in {1..5}; do
+            if psql -h localhost -U postgres -tc "SELECT 1 FROM pg_database WHERE datname='chess_app_test';" | grep -q 1; then
+              echo "Database already exists"
+              break
+            else
+              echo "Creating database (attempt $i/5)"
+              if psql -h localhost -U postgres -c "CREATE DATABASE chess_app_test;"; then
+                echo "Database created successfully"
+                break
+              fi
+              sleep 2
+              if [ $i -eq 5 ]; then
+                echo "Failed to create database"
+                exit 1
+              fi
+            fi
+          done
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -47,17 +84,27 @@ jobs:
       - name: Install root dependencies
         run: npm install
 
-      - name: Install client dependencies
-        run: npm install
-        working-directory: client
-
       - name: Install server dependencies
-        run: npm install
         working-directory: server
+        run: npm install
+
+      - name: Run server migrations if available
+        working-directory: server
+        run: |
+          if node -e "process.exit((require('./package.json').scripts||{}).migrate ? 0 : 1)"; then
+            echo "Running server migrations..."
+            npm run migrate
+          else
+            echo "No server migrate script; skipping"
+          fi
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm install
 
       - name: Build client
-        run: npm run build
         working-directory: client
+        run: npm run build
 
       - name: Upload client build artifacts
         uses: actions/upload-artifact@v4
@@ -70,17 +117,22 @@ jobs:
         with:
           name: server-code
           path: |
-            server
+            server/
+            ecosystem.config.js
             package.json
             package-lock.json
-
   deploy:
     needs: build-and-test
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
+    env:
+      VM_ZONE: us-west1-a
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v1
@@ -92,51 +144,65 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Download client build
+      - name: Download client build artifact
         uses: actions/download-artifact@v4
         with:
           name: client-build
           path: client/build
 
-      - name: Download server files
+      - name: Download server code artifact
         uses: actions/download-artifact@v4
         with:
           name: server-code
-          path: ./server-root
+          path: server-root
 
-      - name: Deploy to GCP VM
+      - name: Start VM and wait for SSH
         run: |
-          echo "Starting VM..."
-          gcloud compute instances start ${{ secrets.VM_NAME }} --zone=us-west1-a
-
-          echo "Waiting for VM..."
-          sleep 30
-
-          echo "Creating directories on VM..."
-          gcloud compute ssh ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }} --zone=us-west1-a --command="mkdir -p ~/client/build ~/server"
-
-          echo "Copying files to VM..."
-          gcloud compute scp --recurse client/build ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~/client --zone=us-west1-a
-          # copy all files *inside* server-root/server into ~/server
-          gcloud compute scp --recurse server-root/server/. ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~/server --zone=us-west1-a
-          gcloud compute scp server-root/package*.json ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~ --zone=us-west1-a
-
-          echo "Running setup and restarting services..."
-          gcloud compute ssh ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }} --zone=us-west1-a --command="
-            echo 'DATABASE_URL=postgres://postgres:postgres@localhost:5432/chess_app' > .env
-            echo 'JWT_SECRET=${{ secrets.JWT_SECRET }}' >> .env
-            echo 'CLIENT_URL=http://localhost:3000' >> .env
-            echo 'PORT=3001' >> .env
-            echo 'NODE_ENV=production' >> .env
-
-            npm install
-            cd server && npm install
-            node server/setup-db.js
-
-            if ! command -v pm2 >/dev/null 2>&1; then
-              sudo npm install -g pm2
+          gcloud compute instances start ${{ secrets.VM_NAME }} --zone=${{ env.VM_ZONE }}
+          for i in {1..12}; do
+            if gcloud compute ssh ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }} --zone=${{ env.VM_ZONE }} --command="echo ok" &>/dev/null; then
+              echo "SSH ready"
+              break
+            else
+              echo "Waiting for VM SSH..."
+              sleep 5
             fi
-            pm2 restart all || pm2 start npm --name 'chess-app' -- start
-          "
+          done
+      - name: Upload files to VM
+        run: |
+          gcloud compute ssh ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }} --zone=${{ env.VM_ZONE }} --command="mkdir -p ~/client/build ~/server"
+          gcloud compute scp --recurse client/build ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~/client --zone=${{ env.VM_ZONE }}
+          gcloud compute scp --recurse server-root/server/. ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~/server --zone=${{ env.VM_ZONE }}
+          gcloud compute scp server-root/ecosystem.config.js server-root/package.json server-root/package-lock.json ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }}:~/server --zone=${{ env.VM_ZONE }}
 
-          echo "✅ Deployment complete."
+      - name: Create environment file on VM
+        run: |
+          gcloud compute ssh ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }} --zone=${{ env.VM_ZONE }} --command="
+          cd ~/server && 
+          cat > .env.production << 'EOL'
+          NODE_ENV=production
+          PORT=3001
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          EOL"
+
+      - name: Deploy on VM
+        run: |
+          gcloud compute ssh ${{ secrets.VM_USER }}@${{ secrets.VM_NAME }} --zone=${{ env.VM_ZONE }} --command="
+          cd ~/server && 
+          npm install && 
+          if ! command -v pm2 >/dev/null 2>&1; then 
+            sudo npm install -g pm2
+          fi && 
+          if [ -f ecosystem.config.js ]; then 
+            pm2 start ecosystem.config.js --env production || pm2 reload ecosystem.config.js --env production
+          else 
+            pm2 start server.js --name chess-app --env production || pm2 restart chess-app
+          fi && 
+          pm2 save"
+
+      - name: Notify deployment success
+        run: echo "Deployment to ${{ secrets.VM_NAME }} completed successfully."
