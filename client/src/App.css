@@ -18,59 +18,14 @@ html, body, #root, .app {
     overflow: hidden;
 }
 
-@media (max-width: 600px) {
-    :root {
-       --tile-size: calc(90vmin / 8); /* 8 tiles per side, 90% of the smallest viewport side */
-    }
-    .main-content {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-        min-height: 100vh;
-        justify-content: center;
-        align-items: center;
-        padding: 0;
-    }
-    .left-panel {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        min-height: 100vh;
-        padding: 0;
-        width: 100vw;
-        background: #2e2e2e;
-        border: none;
-    }
-    .auth-container, .auth-box-wrapper {
-        min-height: 100vh;
-        height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        flex: 1 1 auto;
-    }
-    .auth-box {
-        margin: 0 auto;
-        width: 100%;
-        max-width: 340px;
-        min-width: 0;
-        box-sizing: border-box;
-        padding: 1.2rem 0.7rem 1rem 0.7rem;
-        border-radius: 10px;
-    }
-}
-
-.app {
+main.app {
     background: #2e2e2e;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.main-content {
+section.main-content {
     display: flex;
     width: 100vw;
     height: 100vh;
@@ -80,9 +35,10 @@ html, body, #root, .app {
     overflow: hidden;
 }
 
-.left-panel {
-    width: 25%;
-    min-width: 320px;
+aside.left-panel {
+    flex: 1 1 320px; /* grow, shrink, min width 320px */
+    min-width: 240px;
+    max-width: 400px;
     height: 100vh;
     background: #2e2e2e;
     padding: 1rem;
@@ -93,8 +49,9 @@ html, body, #root, .app {
     overflow: hidden;
 }
 
-.right-panel {
-    width: 80%;
+section.right-panel {
+    flex: 2 1 0; /* grow, shrink, start at 0 */
+    min-width: 0;
     height: 100vh;
     display: flex;
     align-items: center;
@@ -103,7 +60,7 @@ html, body, #root, .app {
     overflow: hidden;
 }
 
-.game-ui {
+article.game-ui {
     flex: 1;
     max-width: 600px;
     width: 100%;
@@ -112,7 +69,7 @@ html, body, #root, .app {
     gap: 0.7rem;
 }
 
-.auth-box-wrapper {
+section.auth-box-wrapper {
     width: 100%;
     height: 100%;
     display: flex;
@@ -122,7 +79,7 @@ html, body, #root, .app {
     overflow: hidden;
 }
 
-.auth-container {
+article.auth-container {
     width: 100%;
     height: 100%;
     display: flex;
@@ -131,7 +88,45 @@ html, body, #root, .app {
     overflow: hidden;
 }
 
-.auth-box {
+.form-group label {
+    display: block;
+    color: #fff;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 500;
+}
+
+.auth-switch {
+    text-align: center;
+    margin-top: 1.2rem;
+    color: #bdbdbd;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1rem;
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.auth-switch-button {
+    background: none;
+    border: none;
+    color: #4a90e2;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0;
+    margin-left: 0.3rem;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    text-shadow: 0 2px 8px rgba(74,144,226,0.18);
+    transition: color 0.2s;
+}
+
+.auth-switch-button:hover {
+    text-decoration: underline;
+    color: #357abd;
+}
+
+form.auth-box {
     background: rgba(30, 30, 30, 0.98);
     padding: 2.5rem 2rem 2rem 2rem;
     border-radius: 14px;
@@ -143,9 +138,10 @@ html, body, #root, .app {
     flex-direction: column;
     align-items: center;
     margin: 0 auto;
+    font-family: 'Poppins', sans-serif;
 }
 
-.auth-box h2 {
+form.auth-box h2 {
     color: #fff;
     text-align: center;
     margin-bottom: 1.5rem;
@@ -154,14 +150,9 @@ html, body, #root, .app {
     font-weight: 700;
 }
 
-.form-group {
-    width: 100%;
-    margin-bottom: 1.2rem;
-}
-
-.auth-box input[type="text"],
-.auth-box input[type="password"],
-.auth-box input[type="email"] {
+form.auth-box input[type="text"],
+form.auth-box input[type="password"],
+form.auth-box input[type="email"] {
     width: 100%;
     padding: 0.75rem 1rem;
     border: 1px solid #444;
@@ -175,22 +166,22 @@ html, body, #root, .app {
     transition: border 0.2s;
 }
 
-.auth-box input[type="text"]:focus,
-.auth-box input[type="password"]:focus,
-.auth-box input[type="email"]:focus {
+form.auth-box input[type="text"]:focus,
+form.auth-box input[type="password"]:focus,
+form.auth-box input[type="email"]:focus {
     border: 1.5px solid #4a90e2;
     background: #262a36;
 }
 
-.auth-box input[type="email"]::placeholder {
+form.auth-box input[type="email"]::placeholder {
     color: #888;
 }
 
-.auth-box input[type="email"]:invalid {
+form.auth-box input[type="email"]:invalid {
     border-color: #e74c3c;
 }
 
-.auth-box input[type="email"]:invalid:focus {
+form.auth-box input[type="email"]:invalid:focus {
     border-color: #e74c3c;
     box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2);
 }
@@ -246,30 +237,6 @@ button,
     box-shadow: none;
 }
 
-.auth-switch {
-    text-align: center;
-    margin-top: 1.2rem;
-    color: #bdbdbd;
-    font-family: 'Poppins', sans-serif;
-    font-size: 1rem;
-}
-
-.auth-switch-button {
-    background: none;
-    border: none;
-    color: #4a90e2;
-    cursor: pointer;
-    font-size: 1rem;
-    padding: 0;
-    margin-left: 0.5rem;
-    font-family: 'Poppins', sans-serif;
-    font-weight: 600;
-}
-
-.auth-switch-button:hover {
-    text-decoration: underline;
-}
-
 .login-error {
     color: #ff4d4f;
     background: rgba(255,77,79,0.08);
@@ -315,13 +282,13 @@ button,
 }
 
 @media (max-width: 1200px) {
-    .main-content {
+    section.main-content {
         flex-direction: column;
         gap: 2rem;
         padding: 1rem;
     }
 
-    .game-ui {
+    article.game-ui {
         width: 100%;
         max-width: 600px;
         margin: 0 auto;
@@ -332,19 +299,26 @@ button,
         max-width: 600px;
         margin: 0 auto;
     }
+
+    body.only-auth-visible .main-content > *:not(.auth-box-wrapper) {
+        display: none !important;
+    }
+    body.only-auth-visible .auth-box-wrapper {
+        display: flex !important;
+    }
 }
 
 @media (max-width: 768px) {
-    .app {
+    main.app {
         padding: 0.5rem;
     }
 
-    .main-content {
+    section.main-content {
         flex-direction: column;
         height: 100vh;
     }
 
-    .left-panel {
+    aside.left-panel {
         width: 100%;
         min-width: unset;
         height: auto;
@@ -352,12 +326,12 @@ button,
         border-bottom: 1px solid #444;
     }
 
-    .right-panel {
+    section.right-panel {
         width: 100%;
         height: calc(100vh - 400px);
     }
 
-    .game-ui {
+    article.game-ui {
         max-width: 100%;
     }
 
@@ -365,26 +339,45 @@ button,
         max-width: 100%;
     }
 
-    .auth-box-wrapper {
+    section.auth-box-wrapper {
         padding: 0.5rem;
         height: auto;
     }
 
-    .auth-container {
+    article.auth-container {
         height: auto;
     }
 
-    .auth-box {
+    form.auth-box {
         padding: 1.5rem;
+    }
+
+    body.only-auth-visible .main-content > *:not(.auth-box-wrapper) {
+        display: none !important;
+    }
+
+    body.only-auth-visible .auth-box-wrapper {
+        display: flex !important;
+    }
+
+    .auth-box-wrapper {
+        width: 100vw;
+        height: 100vh;
+        padding: 1rem;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        background: #1e1e1e;
+        z-index: 1000;
     }
 }
 
 @media (max-width: 480px) {
-    .app {
+    main.app {
         padding: 0.25rem;
     }
 
-    .main-content {
+    section.main-content {
         padding: 0.25rem;
     }
 
@@ -399,7 +392,7 @@ button,
         display: none !important;
     }
 
-    .right-panel {
+    section.right-panel {
         display: none !important;
     }
 
@@ -428,9 +421,9 @@ button,
 }
 
 @media (min-width: 481px) {
-  .mobile-left-panel {
-    display: none !important;
-  }
+    .mobile-left-panel {
+        display: none !important;
+    }
 }
 
 .user-info {
@@ -450,11 +443,11 @@ button,
 }
 
 @media (max-width: 600px) {
-    .main-content {
+    section.main-content {
         padding: 0.5rem;
     }
 
-    .game-ui {
+    article.game-ui {
         padding: 0.5rem;
     }
 
@@ -462,16 +455,12 @@ button,
         height: 60vh;
     }
 
-    .auth-box {
-        margin: 0 auto;
-        width: 100%;
+    form.auth-box {
         max-width: 340px;
-        min-width: 0;
-        box-sizing: border-box;
         padding: 1.2rem 0.7rem 1rem 0.7rem;
         border-radius: 10px;
     }
-    .auth-box h2 {
+    form.auth-box h2 {
         font-size: 1.4rem;
         margin-bottom: 1rem;
     }
@@ -613,7 +602,7 @@ button,
         gap: 0.2rem;
         padding: 0.3rem 1vw 0.3rem 1vw;
     }
-    .main-content {
+    section.main-content {
         flex-direction: column;
         gap: 1rem;
         padding: 0.3rem 0 0 0;
@@ -631,7 +620,7 @@ button,
         gap: 0.1rem;
         padding: 0.2rem 0.5vw 0.2rem 0.5vw;
     }
-    .main-content {
+    section.main-content {
         flex-direction: column;
         gap: 0.5rem;
         padding: 0.2rem 0 0 0;
@@ -773,6 +762,47 @@ button,
     letter-spacing: 0.5px;
     text-shadow: 0 1px 2px rgba(0,0,0,0.12);
     text-align: center;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+header h2 {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 1.2rem;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.22), 0 1px 0 #4a90e2;
+    letter-spacing: 0.04em;
+    font-family: 'Poppins', 'Quicksand', Arial, sans-serif;
+}
+
+nav.stats {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 1.5rem;
+    background: rgba(44, 62, 80, 0.18);
+    border-radius: 2rem;
+    padding: 0.6rem 1.5rem;
+    margin: 0 auto 1.2rem auto;
+    box-shadow: 0 2px 8px rgba(74,144,226,0.10);
+    font-family: 'Quicksand', 'Poppins', Arial, sans-serif;
+    font-size: 1.1rem;
+    color: #e0e0e0;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+nav.stats p {
+    margin: 0;
+    padding: 0 0.7rem;
+    border-right: 1px solid #4a90e2;
+}
+nav.stats p:last-child {
+    border-right: none;
 }
 
 

@@ -11,33 +11,25 @@ const Auth = ({ onLogin }) => {
 
     // Clear any existing session when component mounts
     useEffect(() => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('username');
+        // No need to clear token from localStorage
     }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-
         try {
             const response = await fetch(`${API_BASE_URL}/api/${isLogin ? 'login' : 'register'}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                credentials: 'include', // Send cookies
                 body: JSON.stringify({ username, password }),
             });
-
             const data = await response.json();
-
             if (!response.ok) {
                 throw new Error(data.error || 'Authentication failed');
             }
-
-            // Store the token and username
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('username', data.username);
-            
             // Notify parent component
             onLogin(data);
         } catch (err) {

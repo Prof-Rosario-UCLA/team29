@@ -12,8 +12,7 @@ const urlsToCache = [
   '/static/js/main.chunk.js',
   '/static/js/0.chunk.js',
   '/static/js/bundle.js',
-  '/static/css/main.chunk.css',
-  '/pieces/*'
+  '/static/css/main.chunk.css'
 ];
 
 // Install event - cache static assets

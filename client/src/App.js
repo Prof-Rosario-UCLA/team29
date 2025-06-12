@@ -34,8 +34,6 @@ function App() {
         e.preventDefault();
         try {
             const endpoint = isLogin ? '/api/login' : '/api/register';
-            console.log('Attempting to', isLogin ? 'login' : 'register', 'with:', { username, password, email });
-            
             const response = await fetch(`http://localhost:3001${endpoint}`, {
                 method: 'POST',
                 headers: { 
@@ -44,16 +42,10 @@ function App() {
                 },
                 body: JSON.stringify({ username, password, email })
             });
-            
-            console.log('Response status:', response.status);
             const data = await response.json();
-            console.log('Response data:', data);
-            
             if (!response.ok) {
                 throw new Error(data.error || 'Authentication failed');
             }
-            
-            // Store token and user info
             localStorage.setItem('token', data.token);
             setUser({ username: data.username, token: data.token });
         } catch (error) {
@@ -62,11 +54,7 @@ function App() {
         }
     };
 
-    const handleLogout = () => {
-        if (socketRef.current) {
-            socketRef.current.disconnect();
-            socketRef.current = null;
-        }
+    const handleLogout = async () => {
         localStorage.removeItem('token');
         setUser(null);
         setGameState(null);
@@ -308,7 +296,7 @@ function App() {
 
     // Initialize socket after login
     useEffect(() => {
-        if (user && !socketRef.current) {
+        if (user && user.token && !socketRef.current) {
             socketRef.current = io('http://localhost:3001', {
                 auth: { token: user.token },
                 transports: ['websocket'],
@@ -412,82 +400,141 @@ function App() {
         };
     }, [user]);
 
+    useEffect(() => {
+        if (!user && window.innerWidth <= 1200) {
+            document.body.classList.add('only-auth-visible');
+        } else {
+            document.body.classList.remove('only-auth-visible');
+        }
+        return () => document.body.classList.remove('only-auth-visible');
+    }, [user]);
+
+    useEffect(() => {
+        // On mount, check for token in localStorage and fetch username and stats from server
+        const token = localStorage.getItem('token');
+        if (token) {
+            (async () => {
+                try {
+                    const res = await fetch('http://localhost:3001/api/me', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        // Fetch stats as well
+                        const statsRes = await fetch('http://localhost:3001/api/user/stats', {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+                        let statsData = { wins: 0, losses: 0, draws: 0 };
+                        if (statsRes.ok) {
+                            statsData = await statsRes.json();
+                        }
+                        setUser({ username: data.username, token });
+                        setStats(statsData);
+                    } else {
+                        setUser(null);
+                        setStats({ wins: 0, losses: 0, draws: 0 });
+                    }
+                } catch (err) {
+                    setUser(null);
+                    setStats({ wins: 0, losses: 0, draws: 0 });
+                }
+            })();
+        }
+    }, []);
+
     return (
-        <div className="app">
-            <div className="main-content">
-                <div className="left-panel">
+        <main className="app">
+            <section className="main-content">
+                <aside className="left-panel">
                     {!user ? (
-                        <div className="auth-box-wrapper">
-                            <div className="auth-container">
-                                <div className="auth-box">
+                        <section className="auth-box-wrapper">
+                            <article className="auth-container">
+                                <form className="auth-box" onSubmit={handleAuthSubmit}>
                                     <h2>{isLogin ? 'Login' : 'Register'}</h2>
-                                    <form onSubmit={handleAuthSubmit}>
-                                        <div className="form-group">
-                                            <input
-                                                type="text"
-                                                placeholder="Username"
-                                                value={username}
-                                                onChange={(e) => setUsername(e.target.value)}
-                                                required
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <input
-                                                type="password"
-                                                placeholder="Password"
-                                                value={password}
-                                                onChange={(e) => setPassword(e.target.value)}
-                                                required
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <input
-                                                type="email"
-                                                placeholder="Email"
-                                                value={email}
-                                                onChange={(e) => setEmail(e.target.value)}
-                                                required
-                                            />
-                                        </div>
-                                        <button type="submit" className="auth-button">
-                                            {isLogin ? 'Login' : 'Register'}
-                                        </button>
-                                    </form>
+
+                                    <div className="form-group">
+                                        <label htmlFor="username">Username</label>
+                                        <input
+                                            type="text"
+                                            id="username"
+                                            placeholder="Username"
+                                            value={username}
+                                            onChange={(e) => setUsername(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label htmlFor="password">Password</label>
+                                        <input
+                                            type="password"
+                                            id="password"
+                                            placeholder="Password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label htmlFor="email">Email</label>
+                                        <input
+                                            type="email"
+                                            id="email"
+                                            placeholder="Email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+
+                                    <button className="auth-button" type="submit">{isLogin ? 'Login' : 'Register'}</button>
+
                                     <p className="auth-switch">
-                                        {isLogin ? "Don't have an account? " : "Already have an account? "}
-                                        <button onClick={() => setIsLogin(!isLogin)} className="auth-switch-button">
+                                        {isLogin ? "Don't have an account?" : "Already have an account?"}
+                                        <button
+                                            type="button"
+                                            className="auth-switch-button"
+                                            onClick={() => setIsLogin(!isLogin)}
+                                        >
                                             {isLogin ? 'Register' : 'Login'}
                                         </button>
                                     </p>
-                                </div>
-                            </div>
-                        </div>
+                                </form>
+                            </article>
+                        </section>
                     ) : (
                         <>
-                            <h2 style={{ fontSize: '2.2rem', fontWeight: 700, color: '#fff', marginBottom: '1rem', textAlign: 'center', textShadow: '0 2px 8px rgba(0,0,0,0.18)', fontFamily: 'Quicksand, Poppins, Arial, sans-serif', letterSpacing: '0.04em' }}>
-                                Welcome, {user.username}!
-                            </h2>
-                            <div className="stats" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', gap: '2.5rem', fontFamily: 'Quicksand, Poppins, Arial, sans-serif', fontSize: '1.15rem', color: '#e0e0e0', fontWeight: 600, letterSpacing: '0.03em', marginBottom: '1.2rem' }}>
-                                <p style={{ margin: 0 }}>Wins: {stats.wins}</p>
-                                <p style={{ margin: 0 }}>Losses: {stats.losses}</p>
-                                <p style={{ margin: 0 }}>Draws: {stats.draws}</p>
-                            </div>
-                            <button onClick={handleLogout} className="logout-button">Logout</button>
-                            <div className="matchmaking">
+                            <header>
+                                <h2>Welcome, {user.username}!</h2>
+                                <nav className="stats">
+                                    <p>Wins: {stats.wins}</p>
+                                    <p>Losses: {stats.losses}</p>
+                                    <p>Draws: {stats.draws}</p>
+                                </nav>
+                                <button onClick={handleLogout} className="logout-button">Logout</button>
+                            </header>
+                            <section className="matchmaking">
                                 <h3>Find a Match</h3>
                                 <button onClick={handleStartLocalGame} className="find-match-button">Play Local Game</button>
-                                <button onClick={handleFindOnlineMatch} className="find-match-button" disabled={isSearching}>{isSearching ? 'Searching...' : 'Play vs Human'}</button>
+                                <button onClick={handleFindOnlineMatch} className="find-match-button" disabled={isSearching}>
+                                    {isSearching ? 'Searching...' : 'Play vs Human'}
+                                </button>
                                 {isSearching && (
                                     <button onClick={handleCancelSearch} className="cancel-search-button">Cancel Search</button>
                                 )}
-                            </div>
+                            </section>
                         </>
                     )}
-                </div>
-                <div className="right-panel">
+                </aside>
+                <section className="right-panel">
                     {user ? (
                         <>
-                            <div className="chess-board-container">
+                            <article className="game-ui">
                                 <ChessBoard
                                     board={gameState ? gameState.board : staticBoard}
                                     onMove={gameState ? handleMove : () => {}}
@@ -497,7 +544,7 @@ function App() {
                                     castlingRights={castlingRights}
                                 />
                                 {gameState && (
-                                    <div className="game-controls">
+                                    <nav className="game-controls">
                                         <button className="quit-game-button" onClick={handleQuitGame}>
                                             Quit Game
                                         </button>
@@ -506,12 +553,12 @@ function App() {
                                                 Reset Game
                                             </button>
                                         )}
-                                    </div>
+                                    </nav>
                                 )}
-                            </div>
+                            </article>
                         </>
                     ) : (
-                        <div className="chess-board-container desktop-only">
+                        <section className="chess-board-container desktop-only">
                             <ChessBoard
                                 board={staticBoard}
                                 onMove={() => {}}
@@ -520,25 +567,27 @@ function App() {
                                 isStatic={true}
                                 castlingRights={castlingRights}
                             />
-                        </div>
+                        </section>
                     )}
-                </div>
-            </div>
+                </section>
+            </section>
             {gameNotification && (
-                <Notification message={gameNotification.message} type={gameNotification.type} />
+                <aside className="game-notification" role="alert">
+                    <p>{gameNotification.message}</p>
+                </aside>
             )}
             {promotionMove && (
-                <div className="promotion-modal">
+                <dialog className="promotion-modal" open>
                     <h3>Choose a piece to promote to:</h3>
-                    <div className="promotion-options">
+                    <nav className="promotion-options">
                         <button onClick={() => handlePromotion('queen')}>Queen</button>
                         <button onClick={() => handlePromotion('rook')}>Rook</button>
                         <button onClick={() => handlePromotion('bishop')}>Bishop</button>
                         <button onClick={() => handlePromotion('knight')}>Knight</button>
-                    </div>
-                </div>
+                    </nav>
+                </dialog>
             )}
-        </div>
+        </main>
     );
 }
 
