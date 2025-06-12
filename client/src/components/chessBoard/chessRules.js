@@ -396,6 +396,23 @@ const isValidMove = (board, fromRank, fromFile, toRank, toFile) => {
     return validMoves.some(([rank, file]) => rank === toRank && file === toFile);
 };
 
+// Returns all legal moves for a given color as {from, to} objects
+function getAllLegalMoves(board, color, castlingRights = null) {
+    const moves = [];
+    for (let rank = 0; rank < 8; rank++) {
+        for (let file = 0; file < 8; file++) {
+            const piece = board[rank][file];
+            if (piece && piece.color === color) {
+                const validMoves = getValidMovesWithCheck(board, rank, file, castlingRights);
+                validMoves.forEach(([toRank, toFile]) => {
+                    moves.push({ from: { row: rank, col: file }, to: { row: toRank, col: toFile } });
+                });
+            }
+        }
+    }
+    return moves;
+}
+
 // Export the new functions
 export { 
     getValidMoves, 
@@ -404,5 +421,6 @@ export {
     isPiecePinned,
     getValidMovesWithCheck,
     isCheckmate,
-    initializeCastlingRights
+    initializeCastlingRights,
+    getAllLegalMoves
 }; 

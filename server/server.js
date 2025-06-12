@@ -364,6 +364,30 @@ async function startServer() {
                 const opponent = isWhite ? game.black : game.white;
                 opponent.emit('opponentMove', { from, to });
             });
+
+            socket.on('requestDraw', ({ gameId }) => {
+                console.log('Draw requested for game:', gameId);
+                const game = activeGames.get(gameId);
+                if (game) {
+                    const opponent = game.white === socket ? game.black : game.white;
+                    if (opponent) {
+                        opponent.emit('drawRequested');
+                    }
+                }
+            });
+
+            socket.on('acceptDraw', ({ gameId }) => {
+                console.log('Draw accepted for game:', gameId);
+                const game = activeGames.get(gameId);
+                if (game) {
+                    const opponent = game.white === socket ? game.black : game.white;
+                    if (opponent) {
+                        opponent.emit('drawAccepted');
+                    }
+                    // Update game state or remove from active games if needed
+                    activeGames.delete(gameId);
+                }
+            });
         });
     } catch (error) {
         console.error('Failed to start server:', error);

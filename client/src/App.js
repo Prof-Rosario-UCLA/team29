@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import "./App.css";
 import ChessBoard from "./components/chessBoard/chessBoard.js";
 import { initializeBoard, getPieceImage } from "./utils/boardState";
-import { initializeCastlingRights } from "./components/chessBoard/chessRules";
+import { initializeCastlingRights, getAllLegalMoves } from "./components/chessBoard/chessRules";
 import io from 'socket.io-client';
+import { pickMove, pickMoveMinimax } from './wasm/ai';
 
 function App() {
     const [user, setUser] = useState(null);
@@ -73,6 +74,16 @@ function App() {
         });
     };
 
+    const handleStartBotGame = () => {
+        setGameState({
+            board: initializeBoard(),
+            color: 'white',
+            currentTurn: 'white',
+            opponent: 'bot',
+            gameMode: 'bot'
+        });
+    };
+
     const handleFindOnlineMatch = () => {
         console.log('handleFindOnlineMatch called');
         
@@ -120,6 +131,30 @@ function App() {
         
         if (!piece) {
             console.error('No piece at source position:', from);
+            return;
+        }
+
+        if (gameState.gameMode === 'bot') {
+            if (gameState.currentTurn !== piece.color) return;
+            // Player move
+            board[to.row][to.col] = piece;
+            board[from.row][from.col] = null;
+            setGameState(prev => ({ ...prev, board, currentTurn: 'black' }));
+            // Bot move after short delay
+            setTimeout(() => {
+                const legalMoves = getAllLegalMoves(board, 'black', castlingRights);
+                if (legalMoves.length > 0) {
+                    // Use minimax for the bot
+                    const idx = pickMoveMinimax(board, 'black', castlingRights, getAllLegalMoves, 2);
+                    const botMove = legalMoves[idx];
+                    const { from, to } = botMove;
+                    const newBoard = board.map(row => row.slice());
+                    const botPiece = newBoard[from.row][from.col];
+                    newBoard[to.row][to.col] = botPiece;
+                    newBoard[from.row][from.col] = null;
+                    setGameState(prev => ({ ...prev, board: newBoard, currentTurn: 'white' }));
+                }
+            }, 600);
             return;
         }
 
@@ -454,6 +489,31 @@ function App() {
         }
     }, []);
 
+    useEffect(() => {
+        if (socketRef.current) {
+            socketRef.current.on('drawRequested', () => {
+                setGameNotification({ message: 'Opponent requested a draw. Accept?', type: 'info' });
+                // Optionally, add logic to accept/reject the draw request
+            });
+
+            socketRef.current.on('drawAccepted', () => {
+                setGameNotification({ message: 'Draw accepted!', type: 'success' });
+                setStats(prev => ({ ...prev, draws: prev.draws + 1 }));
+                setTimeout(() => {
+                    setGameState(null);
+                    setGameNotification(null);
+                }, 3000);
+            });
+        }
+
+        return () => {
+            if (socketRef.current) {
+                socketRef.current.off('drawRequested');
+                socketRef.current.off('drawAccepted');
+            }
+        };
+    }, [user]);
+
     return (
         <main className="app">
             <section className="main-content">
@@ -531,6 +591,7 @@ function App() {
                             <section className="matchmaking">
                                 <h3>Find a Match</h3>
                                 <button onClick={handleStartLocalGame} className="find-match-button">Play Local Game</button>
+                                <button onClick={handleStartBotGame} className="find-match-button">Play vs BOT</button>
                                 <button onClick={handleFindOnlineMatch} className="find-match-button" disabled={isSearching}>
                                     {isSearching ? 'Searching...' : 'Play vs Human'}
                                 </button>
@@ -563,6 +624,11 @@ function App() {
                                                 Reset Game
                                             </button>
                                         )}
+                                        {gameState.gameMode === 'online' && (
+                                            <button className="draw-button" onClick={() => socketRef.current.emit('requestDraw', { gameId: gameState.gameId })}>
+                                                Request Draw
+                                            </button>
+                                        )}
                                     </nav>
                                 )}
                             </article>
@@ -582,9 +648,7 @@ function App() {
                 </section>
             </section>
             {gameNotification && (
-                <aside className="game-notification" role="alert">
-                    <p>{gameNotification.message}</p>
-                </aside>
+                <Notification message={gameNotification.message} type={gameNotification.type} />
             )}
             {promotionMove && (
                 <dialog className="promotion-modal" open role="dialog" aria-modal="true" aria-labelledby="promotion-title">
