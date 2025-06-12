@@ -289,11 +289,11 @@ const canCastle = (board, color, side, castlingRights) => {
     
     // Check if king and rook haven't moved
     if (color === COLORS.WHITE) {
-        if (side === 'kingside' && castlingRights.white.kingMoved) return false;
+        if (castlingRights.white.kingMoved) return false;
         if (side === 'kingside' && castlingRights.white.kingsideRookMoved) return false;
         if (side === 'queenside' && castlingRights.white.queensideRookMoved) return false;
     } else {
-        if (side === 'kingside' && castlingRights.black.kingMoved) return false;
+        if (castlingRights.black.kingMoved) return false;
         if (side === 'kingside' && castlingRights.black.kingsideRookMoved) return false;
         if (side === 'queenside' && castlingRights.black.queensideRookMoved) return false;
     }
@@ -329,9 +329,11 @@ const canCastle = (board, color, side, castlingRights) => {
 const getCastlingMoves = (board, rank, file, color, castlingRights) => {
     const moves = [];
     if (rank === (color === COLORS.WHITE ? 7 : 0) && file === 4) { // King's position
+        // Kingside castling
         if (canCastle(board, color, 'kingside', castlingRights)) {
             moves.push([rank, file + 2]); // King's destination
         }
+        // Queenside castling
         if (canCastle(board, color, 'queenside', castlingRights)) {
             moves.push([rank, file - 2]); // King's destination
         }

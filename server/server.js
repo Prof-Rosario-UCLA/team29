@@ -10,7 +10,6 @@ const User = require('./models/User');
 const Game = require('./models/Game');
 const cookieParser = require('cookie-parser');
 const cookie = require('cookie');
-const Redis = require('ioredis');
 
 // Load environment variables
 require('dotenv').config();
@@ -38,21 +37,20 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: process.env.CLIENT_URL || "http://localhost:3000",
+        origin: "http://localhost:3000",
         methods: ["GET", "POST"],
         credentials: true
     }
 });
 
-// CORS configuration
+// Middleware
 app.use(cors({
-    origin: [process.env.CLIENT_URL || "http://localhost:3000"],
-    methods: ["GET", "POST"],
+    origin: 'http://localhost:3000',
     credentials: true
 }));
-
 app.use(express.json());
 app.use(cookieParser());
+app.use(express.static(path.join(__dirname, '../client/build')));
 
 // Authentication middleware
 const JWT_SECRET = process.env.JWT_SECRET || 'chess_app_secret_key';
@@ -112,44 +110,24 @@ app.post('/api/logout', (req, res) => {
     res.json({ message: 'Logged out' });
 });
 
-// Endpoint to get user stats
-// Use environment variable for Redis host, default to localhost
-const redis = new Redis({
-    host: process.env.REDIS_HOST || '127.0.0.1',
-    port: 6379
-});
-app.get('/api/user/stats', authenticateToken, async (req, res) => {
-    const cacheKey = `user:stats:${req.user.id}`;
+// Get user stats
+app.get('/api/stats', authenticateToken, async (req, res) => {
     try {
-        const cached = await redis.get(cacheKey);
-        if (cached) {
-            console.log(`[CACHE] Served stats for user ${req.user.id} from Redis.`);
-            return res.json(JSON.parse(cached));
-        }
         const user = await User.findByPk(req.user.id);
-        if (!user) return res.status(404).json({ error: 'User not found' });
-        const games = await Game.findAll({
-            where: {
-                [sequelize.Op.or]: [
-                    { player_whiteId: user.id },
-                    { player_blackId: user.id }
-                ]
-            }
-        });
-        const stats = { wins: 0, losses: 0, draws: 0 };
-        games.forEach(game => {
-            if (game.status === 'completed') {
-                if (game.winner === user.id) stats.wins++;
-                else if (game.winner === null) stats.draws++;
-                else stats.losses++;
-            }
-        });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const stats = {
+            wins: user.wins || 0,
+            losses: user.losses || 0,
+            draws: user.draws || 0
+        };
+
         res.json(stats);
-        await redis.set(cacheKey, JSON.stringify(stats), 'EX', 300); // cache for 5 minutes
-        console.log(`[CACHE] Computed and cached stats for user ${req.user.id}.`);
     } catch (error) {
         console.error('Error fetching stats:', error);
-        res.status(500).json({ error: 'Error fetching user stats' });
+        res.status(500).json({ error: 'Error fetching stats' });
     }
 });
 

@@ -20,6 +20,8 @@ function App() {
     const [castlingRights, setCastlingRights] = useState(initializeCastlingRights());
     const [gameNotification, setGameNotification] = useState(null);
     const socketRef = useRef(null);
+    const [showConsentBanner, setShowConsentBanner] = useState(true);
+    const [hasConsented, setHasConsented] = useState(false);
 
     // Add notification component
     const Notification = ({ message, type }) => {
@@ -56,12 +58,21 @@ function App() {
     };
 
     const handleLogout = async () => {
+        if (socketRef.current) {
+            // Cancel any ongoing matchmaking
+            socketRef.current.emit('cancelMatchmaking');
+            socketRef.current.disconnect();
+            socketRef.current = null;
+        }
         localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
         setUser(null);
         setGameState(null);
         setUsername('');
         setPassword('');
         setEmail('');
+        setIsSearching(false);
+        setGameNotification(null);
     };
 
     const handleStartLocalGame = () => {
@@ -346,19 +357,8 @@ function App() {
                 reconnection: true,
                 reconnectionAttempts: 5
             });
-        }
-        // Cleanup on logout or unmount
-        return () => {
-            if (socketRef.current && !user) {
-                socketRef.current.disconnect();
-                socketRef.current = null;
-            }
-        };
-    }, [user]);
 
-    // Update game state when match is found
-    useEffect(() => {
-        if (socketRef.current) {
+            // Set up socket event listeners
             socketRef.current.on('gameFound', (gameData) => {
                 console.log('Game found! Data:', gameData);
                 setGameState({
@@ -379,9 +379,12 @@ function App() {
             });
         }
 
+        // Cleanup on logout or unmount
         return () => {
             if (socketRef.current) {
                 socketRef.current.off('gameFound');
+                socketRef.current.disconnect();
+                socketRef.current = null;
             }
         };
     }, [user]);
@@ -416,6 +419,7 @@ function App() {
                 setTimeout(() => {
                     setGameState(null);
                     setGameNotification(null);
+                    setCastlingRights(initializeCastlingRights());
                 }, 3000);
             });
 
@@ -431,6 +435,7 @@ function App() {
                 setTimeout(() => {
                     setGameState(null);
                     setGameNotification(null);
+                    setCastlingRights(initializeCastlingRights());
                 }, 3000);
             });
         }
@@ -452,42 +457,73 @@ function App() {
         return () => document.body.classList.remove('only-auth-visible');
     }, [user]);
 
+    // Check for existing token and consent on mount
     useEffect(() => {
-        // On mount, check for token in localStorage and fetch username and stats from server
-        const token = localStorage.getItem('token');
-        if (token) {
-            (async () => {
+        const checkAuth = async () => {
+            // Check for consent first
+            const hasConsentedBefore = localStorage.getItem('statePersistenceConsent');
+            const hasShownBannerThisSession = sessionStorage.getItem('consentBannerShown');
+            
+            // Show banner if user hasn't explicitly consented and hasn't seen it this session
+            setShowConsentBanner(!hasConsentedBefore && !hasShownBannerThisSession);
+            setHasConsented(hasConsentedBefore === 'true');
+
+            // Mark banner as shown for this session
+            if (!hasShownBannerThisSession) {
+                sessionStorage.setItem('consentBannerShown', 'true');
+            }
+
+            // Get token from appropriate storage based on consent
+            const token = hasConsentedBefore ? localStorage.getItem('token') : sessionStorage.getItem('token');
+            
+            if (token) {
                 try {
-                    const res = await fetch('http://localhost:3001/api/me', {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
+                    const response = await fetch('/api/me', {
+                        headers: { 'Authorization': `Bearer ${token}` }
                     });
-                    if (res.ok) {
-                        const data = await res.json();
-                        // Fetch stats as well
-                        const statsRes = await fetch('http://localhost:3001/api/user/stats', {
-                            headers: {
-                                'Authorization': `Bearer ${token}`
-                            }
-                        });
-                        let statsData = { wins: 0, losses: 0, draws: 0 };
-                        if (statsRes.ok) {
-                            statsData = await statsRes.json();
-                        }
-                        setUser({ username: data.username, token });
-                        setStats(statsData);
+                    if (response.ok) {
+                        const userData = await response.json();
+                        setUser(userData);
                     } else {
-                        setUser(null);
-                        setStats({ wins: 0, losses: 0, draws: 0 });
+                        // Clear invalid token
+                        localStorage.removeItem('token');
+                        sessionStorage.removeItem('token');
                     }
-                } catch (err) {
-                    setUser(null);
-                    setStats({ wins: 0, losses: 0, draws: 0 });
+                } catch (error) {
+                    console.error('Auth check failed:', error);
+                    // Clear invalid token
+                    localStorage.removeItem('token');
+                    sessionStorage.removeItem('token');
                 }
-            })();
-        }
+            }
+        };
+        checkAuth();
     }, []);
+
+    // Handle consent
+    const handleConsent = (consent) => {
+        setHasConsented(consent);
+        setShowConsentBanner(false);
+        
+        // Get current token
+        const currentToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+        
+        if (consent) {
+            localStorage.setItem('statePersistenceConsent', 'true');
+            // Move token from sessionStorage to localStorage if it exists
+            if (currentToken) {
+                localStorage.setItem('token', currentToken);
+                sessionStorage.removeItem('token');
+            }
+        } else {
+            localStorage.removeItem('statePersistenceConsent');
+            // Move token from localStorage to sessionStorage if it exists
+            if (currentToken) {
+                sessionStorage.setItem('token', currentToken);
+                localStorage.removeItem('token');
+            }
+        }
+    };
 
     useEffect(() => {
         if (socketRef.current) {
@@ -502,6 +538,7 @@ function App() {
                 setTimeout(() => {
                     setGameState(null);
                     setGameNotification(null);
+                    setCastlingRights(initializeCastlingRights());
                 }, 3000);
             });
         }
@@ -513,6 +550,162 @@ function App() {
             }
         };
     }, [user]);
+
+    // Handle login
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                // Store token based on user's consent
+                if (hasConsented) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('statePersistenceConsent', 'true');
+                } else {
+                    sessionStorage.setItem('token', data.token);
+                }
+
+                // Fetch user data using /me endpoint
+                const userResponse = await fetch('/api/me', {
+                    headers: { 'Authorization': `Bearer ${data.token}` }
+                });
+                if (userResponse.ok) {
+                    const userData = await userResponse.json();
+                    setUser(userData);
+                    // Clear any existing error notification
+                    setGameNotification(null);
+                } else {
+                    throw new Error('Failed to fetch user data');
+                }
+            } else {
+                // Only set error notification if there isn't already one
+                if (!gameNotification || gameNotification.type !== 'error') {
+                    setGameNotification({ message: data.error, type: 'error' });
+                }
+            }
+        } catch (error) {
+            // Only set error notification if there isn't already one
+            if (!gameNotification || gameNotification.type !== 'error') {
+                setGameNotification({ message: 'Login failed', type: 'error' });
+            }
+        }
+    };
+
+    // Handle registration
+    const handleRegister = async (e) => {
+        e.preventDefault();
+        try {
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, email })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                // Store token based on user's consent
+                if (hasConsented) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('statePersistenceConsent', 'true');
+                } else {
+                    sessionStorage.setItem('token', data.token);
+                }
+
+                // Fetch user data using /me endpoint
+                const userResponse = await fetch('/api/me', {
+                    headers: { 'Authorization': `Bearer ${data.token}` }
+                });
+                if (userResponse.ok) {
+                    const userData = await userResponse.json();
+                    setUser(userData);
+                } else {
+                    throw new Error('Failed to fetch user data');
+                }
+            } else {
+                setGameNotification({ message: data.error, type: 'error' });
+            }
+        } catch (error) {
+            setGameNotification({ message: 'Registration failed', type: 'error' });
+        }
+    };
+
+    // Add draw request handling
+    const handleDrawRequest = () => {
+        if (gameState && gameState.gameMode === 'online' && socketRef.current) {
+            socketRef.current.emit('requestDraw', { gameId: gameState.gameId });
+            setGameNotification({ message: 'Draw requested. Waiting for opponent...', type: 'info' });
+        }
+    };
+
+    // Add draw response handling
+    const handleDrawResponse = (accept) => {
+        if (gameState && gameState.gameMode === 'online' && socketRef.current) {
+            if (accept) {
+                socketRef.current.emit('acceptDraw', { gameId: gameState.gameId });
+                setGameNotification({ message: 'Draw accepted!', type: 'success' });
+                setStats(prev => ({ ...prev, draws: prev.draws + 1 }));
+                setTimeout(() => {
+                    setGameState(null);
+                    setGameNotification(null);
+                }, 3000);
+            } else {
+                socketRef.current.emit('rejectDraw', { gameId: gameState.gameId });
+                setGameNotification({ message: 'Draw rejected', type: 'info' });
+            }
+        }
+    };
+
+    // Add draw request notification component
+    const DrawRequestNotification = () => {
+        if (!gameNotification || gameNotification.message !== 'Opponent requested a draw. Accept?') return null;
+        return (
+            <div className="draw-request-notification">
+                <p>{gameNotification.message}</p>
+                <div className="draw-buttons">
+                    <button onClick={() => handleDrawResponse(true)} className="accept-draw">Accept</button>
+                    <button onClick={() => handleDrawResponse(false)} className="reject-draw">Decline</button>
+                </div>
+            </div>
+        );
+    };
+
+    // Add timeout for consent banner
+    useEffect(() => {
+        if (showConsentBanner) {
+            const timer = setTimeout(() => {
+                setShowConsentBanner(false);
+                // Default to not storing if user doesn't respond
+                handleConsent(false);
+            }, 10000); // 10 seconds
+
+            return () => clearTimeout(timer);
+        }
+    }, [showConsentBanner]);
+
+    // Add consent banner component
+    const ConsentBanner = () => {
+        if (!showConsentBanner) return null;
+        return (
+            <div className="consent-banner">
+                <div className="consent-content">
+                    <h3>Welcome to Chess</h3>
+                    <p>Would you like to stay logged in between sessions? This will store a secure cookie in your browser to remember your login.</p>
+                    <div className="consent-buttons">
+                        <button onClick={() => handleConsent(true)} className="consent-button accept">
+                            Yes, remember me
+                        </button>
+                        <button onClick={() => handleConsent(false)} className="consent-button decline">
+                            No, log me out when I close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     return (
         <main className="app">
@@ -625,7 +818,7 @@ function App() {
                                             </button>
                                         )}
                                         {gameState.gameMode === 'online' && (
-                                            <button className="draw-button" onClick={() => socketRef.current.emit('requestDraw', { gameId: gameState.gameId })}>
+                                            <button className="draw-button" onClick={handleDrawRequest}>
                                                 Request Draw
                                             </button>
                                         )}
@@ -661,6 +854,8 @@ function App() {
                     </nav>
                 </dialog>
             )}
+            <DrawRequestNotification />
+            <ConsentBanner />
         </main>
     );
 }
