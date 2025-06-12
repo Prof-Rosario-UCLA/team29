@@ -800,9 +800,40 @@ nav.stats p {
     margin: 0;
     padding: 0 0.7rem;
     border-right: 1px solid #4a90e2;
+    font-weight: 700;
 }
 nav.stats p:last-child {
     border-right: none;
+}
+nav.stats p:nth-child(1) { color: #4CAF50; } /* Wins: green */
+nav.stats p:nth-child(2) { color: #f44336; } /* Losses: red */
+nav.stats p:nth-child(3) { color: #e0e0e0; } /* Draws: grey */
+
+.game-notification {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-weight: bold;
+    z-index: 1000;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.game-notification.success {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.game-notification.error {
+    background-color: #f44336;
+    color: white;
+}
+
+.game-notification.info {
+    background-color: #2196F3;
+    color: white;
 }
 
 

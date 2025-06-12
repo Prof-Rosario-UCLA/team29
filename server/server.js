@@ -8,6 +8,9 @@ const path = require('path');
 const sequelize = require('./db');
 const User = require('./models/User');
 const Game = require('./models/Game');
+const cookieParser = require('cookie-parser');
+const cookie = require('cookie');
+const Redis = require('ioredis');
 
 // Load environment variables
 require('dotenv').config();
@@ -49,19 +52,23 @@ app.use(cors({
 }));
 
 app.use(express.json());
-
-// Serve static files from the React app
-app.use(express.static(path.join(__dirname, '../client/dist')));
+app.use(cookieParser());
 
 // Authentication middleware
+const JWT_SECRET = process.env.JWT_SECRET || 'chess_app_secret_key';
+
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
-    
-    if (!token) return res.sendStatus(401);
-    
-    jwt.verify(token, process.env.JWT_SECRET || 'chess_app_secret_key', (err, user) => {
-        if (err) return res.sendStatus(403);
+    if (!token) {
+        console.log('No token provided');
+        return res.sendStatus(401);
+    }
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) {
+            console.log('JWT verification failed:', err.message);
+            return res.sendStatus(403);
+        }
         req.user = user;
         next();
     });
@@ -72,14 +79,8 @@ app.post('/api/register', async (req, res) => {
     try {
         const { username, password, email } = req.body;
         const hashedPassword = await bcrypt.hash(password, 10);
-        
-        const user = await User.create({
-            username,
-            password_hash: hashedPassword,
-            email
-        });
-
-        const token = jwt.sign({ id: user.id, username }, 'chess_app_secret_key');
+        const user = await User.create({ username, password_hash: hashedPassword, email });
+        const token = jwt.sign({ id: user.id, username }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, username });
     } catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError') {
@@ -93,14 +94,11 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
-        
         const user = await User.findOne({ where: { username } });
         if (!user) return res.status(400).json({ error: 'User not found' });
-        
         const validPassword = await bcrypt.compare(password, user.password_hash);
         if (!validPassword) return res.status(400).json({ error: 'Invalid password' });
-        
-        const token = jwt.sign({ id: user.id, username }, 'chess_app_secret_key');
+        const token = jwt.sign({ id: user.id, username }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, username });
     } catch (error) {
         console.error('Login error:', error);
@@ -108,12 +106,28 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
+// Logout endpoint
+app.post('/api/logout', (req, res) => {
+    res.clearCookie('token');
+    res.json({ message: 'Logged out' });
+});
+
 // Endpoint to get user stats
+// Use environment variable for Redis host, default to localhost
+const redis = new Redis({
+    host: process.env.REDIS_HOST || '127.0.0.1',
+    port: 6379
+});
 app.get('/api/user/stats', authenticateToken, async (req, res) => {
+    const cacheKey = `user:stats:${req.user.id}`;
     try {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+            console.log(`[CACHE] Served stats for user ${req.user.id} from Redis.`);
+            return res.json(JSON.parse(cached));
+        }
         const user = await User.findByPk(req.user.id);
         if (!user) return res.status(404).json({ error: 'User not found' });
-
         const games = await Game.findAll({
             where: {
                 [sequelize.Op.or]: [
@@ -122,13 +136,7 @@ app.get('/api/user/stats', authenticateToken, async (req, res) => {
                 ]
             }
         });
-
-        const stats = {
-            wins: 0,
-            losses: 0,
-            draws: 0
-        };
-
+        const stats = { wins: 0, losses: 0, draws: 0 };
         games.forEach(game => {
             if (game.status === 'completed') {
                 if (game.winner === user.id) stats.wins++;
@@ -136,8 +144,9 @@ app.get('/api/user/stats', authenticateToken, async (req, res) => {
                 else stats.losses++;
             }
         });
-
         res.json(stats);
+        await redis.set(cacheKey, JSON.stringify(stats), 'EX', 300); // cache for 5 minutes
+        console.log(`[CACHE] Computed and cached stats for user ${req.user.id}.`);
     } catch (error) {
         console.error('Error fetching stats:', error);
         res.status(500).json({ error: 'Error fetching user stats' });
@@ -157,17 +166,10 @@ const activeGames = new Map();
 io.use(async (socket, next) => {
     try {
         const token = socket.handshake.auth.token;
-        if (!token) {
-            return next(new Error('Authentication error'));
-        }
-
-        const decoded = jwt.verify(token, 'chess_app_secret_key');
+        if (!token) return next(new Error('Authentication error'));
+        const decoded = jwt.verify(token, JWT_SECRET);
         const user = await User.findByPk(decoded.id);
-        
-        if (!user) {
-            return next(new Error('User not found'));
-        }
-
+        if (!user) return next(new Error('User not found'));
         socket.user = user;
         next();
     } catch (error) {
@@ -374,9 +376,9 @@ if (require.main === module) {
     startServer();
 }
 
-// The catch-all handler for any request that doesn't match an API route
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+// Get current authenticated user
+app.get('/api/me', authenticateToken, (req, res) => {
+    res.json({ username: req.user.username });
 });
 
 module.exports = app; 

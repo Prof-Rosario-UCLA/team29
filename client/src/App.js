@@ -253,11 +253,19 @@ function App() {
     };
 
     const handleQuitGame = () => {
-        if (gameState.gameMode === 'online' && socketRef.current) {
+        if (gameState && gameState.gameMode === 'online' && socketRef.current) {
             socketRef.current.emit('quitGame', { gameId: gameState.gameId });
+            // Show loss banner and increment losses for quitter
+            setGameNotification({ message: 'You quit the game. This counts as a loss.', type: 'error' });
+            setStats(prev => ({ ...prev, losses: prev.losses + 1 }));
+            setTimeout(() => {
+                setGameState(null);
+                setGameNotification(null);
+            }, 3000);
+        } else {
+            setGameState(null);
+            setCastlingRights(initializeCastlingRights());
         }
-        setGameState(null);
-        setCastlingRights(initializeCastlingRights());
     };
 
     useEffect(() => {
@@ -480,17 +488,19 @@ function App() {
                                         />
                                     </div>
 
-                                    <div className="form-group">
-                                        <label htmlFor="email">Email</label>
-                                        <input
-                                            type="email"
-                                            id="email"
-                                            placeholder="Email"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            required
-                                        />
-                                    </div>
+                                    {!isLogin && (
+                                        <div className="form-group">
+                                            <label htmlFor="email">Email</label>
+                                            <input
+                                                type="email"
+                                                id="email"
+                                                placeholder="Email"
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                                required
+                                            />
+                                        </div>
+                                    )}
 
                                     <button className="auth-button" type="submit">{isLogin ? 'Login' : 'Register'}</button>
 
@@ -577,8 +587,8 @@ function App() {
                 </aside>
             )}
             {promotionMove && (
-                <dialog className="promotion-modal" open>
-                    <h3>Choose a piece to promote to:</h3>
+                <dialog className="promotion-modal" open role="dialog" aria-modal="true" aria-labelledby="promotion-title">
+                    <h3 id="promotion-title">Choose a piece to promote to:</h3>
                     <nav className="promotion-options">
                         <button onClick={() => handlePromotion('queen')}>Queen</button>
                         <button onClick={() => handlePromotion('rook')}>Rook</button>
