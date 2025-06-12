@@ -5,26 +5,31 @@
 ```mermaid
 graph TD
     Client[Client Browser] --> |HTTPS| Server[Express Server]
-    Server --> |PostgreSQL| Database[(PostgreSQL)]
+    Server --> |Sequelize ORM| Database[(PostgreSQL)]
     
     subgraph Frontend
         Client --> |React| UI[React Components]
         UI --> |Canvas API| Board[Chess Board]
-        UI --> |JavaScript| AI[Chess AI]
+        UI --> |JavaScript| AI[Minimax AI]
         UI --> |Service Worker| PWA[PWA Features]
     end
     
     subgraph Backend
-        Server --> |JWT| Auth[Authentication]
+        Server --> |Express Middleware| Auth[Authentication]
         Server --> |Sequelize| Models[Data Models]
         Server --> |Socket.IO| Game[Game Logic]
     end
     
+    subgraph Real-time Communication
+        Client <--> |Socket.IO| Server
+        Server --> |Game State| Client
+    end
+    
     subgraph Security
-        Auth --> |HTTPS| Secure[Security Layer]
-        Secure --> |CORS| CORS[CORS Protection]
-        Secure --> |XSS| XSS[XSS Protection]
-        Secure --> |CSRF| CSRF[CSRF Protection]
+        Auth --> |JWT| Token[Token Management]
+        Auth --> |bcrypt| Hash[Password Hashing]
+        Server --> |CORS| CORS[CORS Protection]
+        Server --> |XSS| XSS[XSS Protection]
     end
 ```
 
@@ -41,14 +46,13 @@ graph TD
    - Canvas API implementation
    - Move validation
    - Visual feedback
-   - Note: Drag and drop not implemented
+   - Click-based movement
 
 3. **Chess AI**
-   - JavaScript-based implementation
-   - Minimax algorithm with alpha-beta pruning
+   - JavaScript-based minimax algorithm
+   - Alpha-beta pruning
    - Move calculation
    - Position evaluation
-   - Performance optimization
 
 4. **PWA Features**
    - Basic Service Worker
